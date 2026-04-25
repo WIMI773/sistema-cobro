@@ -1,0 +1,137 @@
+body {
+  font-family: Arial, sans-serif;
+  background: #f4f4f4;
+  margin: 0;
+  padding: 0;
+}
+
+header {
+  background: #111;
+  color: white;
+  padding: 15px;
+  text-align: center;
+}
+
+nav {
+  margin-top: 10px;
+}
+
+nav button {
+  background: #28a745;
+  border: none;
+  color: white;
+  padding: 10px;
+  margin: 4px;
+  cursor: pointer;
+  border-radius: 5px;
+}
+
+nav button:hover {
+  background: #218838;
+}
+
+.seccion {
+  padding: 15px;
+}
+
+.oculto {
+  display: none;
+}
+
+.card {
+  background: white;
+  padding: 15px;
+  margin-bottom: 20px;
+  border-radius: 10px;
+  box-shadow: 0px 0px 6px rgba(0,0,0,0.2);
+}
+
+input, select {
+  width: 100%;
+  padding: 10px;
+  margin: 6px 0;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  box-sizing: border-box;
+}
+
+button {
+  width: 100%;
+  padding: 10px;
+  margin-top: 8px;
+  background: #007bff;
+  border: none;
+  color: white;
+  cursor: pointer;
+  border-radius: 6px;
+}
+
+button:hover {
+  background: #0056b3;
+}
+
+.btn-danger {
+  background: #dc3545;
+}
+
+.btn-danger:hover {
+  background: #a71d2a;
+}
+
+.btn-secondary {
+  background: #6c757d;
+}
+
+.btn-secondary:hover {
+  background: #4f575e;
+}
+
+/* tablas responsive */
+.table-container {
+  overflow-x: auto;
+  width: 100%;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  min-width: 750px;
+}
+
+th, td {
+  padding: 10px;
+  border: 1px solid #ddd;
+  text-align: center;
+}
+
+th {
+  background: #222;
+  color: white;
+}
+
+.mora {
+  background: #ffcccc;
+  font-weight: bold;
+}
+
+/* Responsive para celular */
+@media (max-width: 600px) {
+  header h1 {
+    font-size: 18px;
+  }
+
+  nav button {
+    width: 30%;
+    font-size: 12px;
+    padding: 8px;
+  }
+
+  .card {
+    padding: 12px;
+  }
+
+  input, select, button {
+    font-size: 14px;
+  }
+}

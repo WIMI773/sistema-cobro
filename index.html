@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sistema de Cobro</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <header>
+    <h1>Sistema de Cobro</h1>
+    <nav>
+      <button onclick="mostrarSeccion('clientes')">Clientes</button>
+      <button onclick="mostrarSeccion('prestamos')">Préstamos</button>
+      <button onclick="mostrarSeccion('pagos')">Pagos</button>
+    </nav>
+  </header>
+
+  <!-- CLIENTES -->
+  <section id="clientes" class="seccion">
+    <h2>Clientes</h2>
+
+    <div class="card">
+      <h3>Nuevo Cliente</h3>
+      <input type="text" id="nombre" placeholder="Nombre">
+      <input type="text" id="cedula" placeholder="Cédula">
+      <input type="text" id="telefono" placeholder="Teléfono">
+      <input type="text" id="direccion" placeholder="Dirección">
+      <button onclick="guardarCliente()">Guardar Cliente</button>
+    </div>
+
+    <h3>Lista de Clientes</h3>
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>Nombre</th>
+            <th>Cédula</th>
+            <th>Teléfono</th>
+            <th>Dirección</th>
+            <th>Acción</th>
+          </tr>
+        </thead>
+        <tbody id="tablaClientes"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- PRESTAMOS -->
+  <section id="prestamos" class="seccion oculto">
+    <h2>Préstamos</h2>
+
+    <div class="card">
+      <h3>Nuevo Préstamo</h3>
+
+      <label>Seleccionar Cliente:</label>
+      <select id="clientePrestamo"></select>
+
+      <input type="number" id="monto" placeholder="Monto prestado">
+      <input type="number" id="interes" placeholder="Interés (%)">
+      <input type="number" id="cuotas" placeholder="Número de cuotas diarias">
+
+      <button onclick="crearPrestamo()">Crear Préstamo</button>
+    </div>
+
+    <h3>Lista de Préstamos</h3>
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>Cliente</th>
+            <th>Total</th>
+            <th>Pagado</th>
+            <th>Saldo</th>
+            <th>Mora</th>
+            <th>Estado</th>
+            <th>Acción</th>
+          </tr>
+        </thead>
+        <tbody id="tablaPrestamos"></tbody>
+      </table>
+    </div>
+
+    <div id="detallePrestamo" class="card oculto"></div>
+  </section>
+
+  <!-- PAGOS -->
+  <section id="pagos" class="seccion oculto">
+    <h2>Pagos</h2>
+
+    <div class="card">
+      <h3>Pagar Cuota</h3>
+
+      <label>Seleccionar Préstamo:</label>
+      <select id="prestamoPago"></select>
+
+      <button onclick="pagarCuotaHoy()">Pagar cuota pendiente (hoy o mora)</button>
+    </div>
+
+    <h3>Historial de Pagos</h3>
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>Cliente</th>
+            <th>N° Cuota</th>
+            <th>Valor</th>
+            <th>Fecha</th>
+          </tr>
+        </thead>
+        <tbody id="tablaPagos"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <script src="app.js"></script>
+</body>
+</html>
