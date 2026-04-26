@@ -189,6 +189,77 @@ button.btn-secondary:hover { background: #374151; }
   gap: 12px;
 }
 
+.loan-list {
+  display: grid;
+  gap: 14px;
+}
+
+.loan-item {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  background: #f8fafc;
+  padding: 18px;
+  border-radius: 18px;
+  border: 1px solid transparent;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.loan-item:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 22px 40px rgba(15, 23, 42, 0.08);
+}
+
+.loan-item-active {
+  border-color: #2563eb;
+  background: #eff6ff;
+}
+
+.loan-item-main {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.loan-item-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #111827;
+  margin-bottom: 6px;
+}
+
+.loan-item-meta {
+  color: #4b5563;
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.loan-item-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.loan-item-grid div {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  padding: 12px;
+  border-radius: 14px;
+}
+
+.loan-item-grid strong {
+  display: block;
+  margin-bottom: 6px;
+  color: #111827;
+}
+
+.loan-item-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
 .loan-detail-header {
   display: flex;
   align-items: center;
@@ -208,12 +279,6 @@ button.btn-secondary:hover { background: #374151; }
   font-size: 0.85rem;
 }
 
-.loan-summary-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
-  margin-bottom: 18px;
-}
 
 .help-text {
   margin: 8px 0 0;
@@ -223,8 +288,7 @@ button.btn-secondary:hover { background: #374151; }
 }
 
 @media (max-width: 720px) {
-  .field-grid,
-  .loan-summary-grid {
+  .field-grid {
     grid-template-columns: 1fr;
   }
 }
@@ -524,6 +588,14 @@ td .action-group {
 
   .stats-card        { padding: 11px; }
   .stats-card strong { font-size: 1.05rem; }
+
+  .loan-item-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .loan-item-actions {
+    justify-content: flex-start;
+  }
 
   .placeholder { padding: 36px 16px; font-size: 0.9rem; }
 

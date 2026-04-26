@@ -184,21 +184,27 @@ function renderDetalleCliente() {
       let mora = cuotasEnMora(p);
       let estado = p.estado === "Activo" ? "Activo" : "Pagado";
       return `
-        <tr class="${p.id === prestamoSeleccionadoId ? 'activo' : ''}">
-          <td>${p.id}</td>
-          <td>${Math.round(p.total)}</td>
-          <td>${pagado}</td>
-          <td>${saldo}</td>
-          <td class="${mora > 0 ? 'mora' : ''}">${mora}</td>
-          <td>${estado}</td>
-          <td class="action-group">
-            <button class="small btn-secondary" onclick="event.stopPropagation(); seleccionarPrestamo(${p.id})">Seleccionar</button>
+        <div class="loan-item ${p.id === prestamoSeleccionadoId ? 'loan-item-active' : ''}" onclick="seleccionarPrestamo(${p.id})">
+          <div class="loan-item-main">
+            <div>
+              <div class="loan-item-title">Préstamo #${p.id}</div>
+              <div class="loan-item-meta">Monto ${Math.round(p.monto)} · Total ${Math.round(p.total)} · Pagado ${pagado} · Saldo ${saldo}</div>
+            </div>
+            <span class="badge ${mora > 0 ? 'mora' : ''}">${estado}</span>
+          </div>
+          <div class="loan-item-grid">
+            <div><strong>Cuotas</strong><span>${p.numeroCuotas}</span></div>
+            <div><strong>Mora</strong><span>${mora}</span></div>
+            <div><strong>Interés</strong><span>${p.interes}%</span></div>
+          </div>
+          <div class="loan-item-actions">
+            <button class="small btn-secondary" onclick="event.stopPropagation(); seleccionarPrestamo(${p.id})">Ver</button>
             <button class="small" onclick="event.stopPropagation(); pagarCuota(${p.id})">Pagar cuota</button>
-          </td>
-        </tr>
+          </div>
+        </div>
       `;
     }).join("")
-    : `<tr><td colspan="7">No hay préstamos para este cliente.</td></tr>`;
+    : `<div class="placeholder">No hay préstamos para este cliente.</div>`;
 
   let pagosCliente = selectedLoan
     ? pagos.filter(pg => pg.prestamoId === selectedLoan.id)
@@ -212,6 +218,21 @@ function renderDetalleCliente() {
       </tr>
     `).join("")
     : `<tr><td colspan="3">No hay pagos registrados.</td></tr>`;
+
+  let selectedLoanSummaryHTML = selectedLoan ? `<div class="stats-card"><span class="badge">Monto préstamo</span><strong>${selectedLoan.monto}</strong></div>` : "";
+
+  let selectedLoanPayCardHTML = selectedLoan ? `
+    <div class="loan-card pay-card">
+      <h3>Pagar próxima cuota</h3>
+      <p class="help-text">Préstamo #${selectedLoan.id} — saldo ${saldoPendiente(selectedLoan)}.</p>
+      <button onclick="pagarCuota(${selectedLoan.id})">Pagar cuota manual</button>
+    </div>
+  ` : `
+    <div class="loan-card pay-card">
+      <h3>Pagar próxima cuota</h3>
+      <p class="placeholder">Selecciona un préstamo para ver la cuota pendiente.</p>
+    </div>
+  `;
 
   cont.innerHTML = `
     <div class="profile-card">
@@ -229,7 +250,10 @@ function renderDetalleCliente() {
       <div class="stats-card"><span class="badge">Total deuda</span><strong>${totalDeuda}</strong></div>
       <div class="stats-card"><span class="badge">Pagado</span><strong>${totalPagadoCliente}</strong></div>
       <div class="stats-card"><span class="badge">Cuotas en mora</span><strong>${totalMora}</strong></div>
+      ${selectedLoanSummaryHTML}
     </div>
+
+    ${selectedLoanPayCardHTML}
 
     <div class="loan-card">
       <h3>Nuevo préstamo</h3>
@@ -257,23 +281,8 @@ function renderDetalleCliente() {
 
     <div class="loan-card">
       <h3>Préstamos de ${cliente.nombre}</h3>
-      <div class="table-container">
-        <table>
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Total</th>
-              <th>Pagado</th>
-              <th>Saldo</th>
-              <th>Mora</th>
-              <th>Estado</th>
-              <th>Acción</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${prestamosHTML}
-          </tbody>
-        </table>
+      <div class="loan-list">
+        ${prestamosHTML}
       </div>
     </div>
 
