@@ -5,6 +5,80 @@ let pagos = JSON.parse(localStorage.getItem("pagos")) || [];
 const params = new URLSearchParams(window.location.search);
 const clienteId = parseInt(params.get("clienteId"), 10);
 let prestamoSeleccionadoId = null;
+let pagoModalPrestamoId = null;
+let pagoModalCuotaNumero = null;
+
+function mostrarNotificacion(mensaje, tipo = "info") {
+  let toast = document.getElementById("toast");
+  if (!toast) return;
+  toast.textContent = mensaje;
+  toast.className = `toast show ${tipo}`;
+  clearTimeout(toast.hideTimeout);
+  toast.hideTimeout = setTimeout(() => {
+    toast.classList.remove("show");
+  }, 3200);
+}
+
+function abrirModalPago() {
+  let modal = document.getElementById("modalPago");
+  if (!modal) return;
+  modal.classList.remove("hidden");
+  modal.setAttribute("aria-hidden", "false");
+}
+
+function cerrarModalPago() {
+  let modal = document.getElementById("modalPago");
+  if (!modal) return;
+  modal.classList.add("hidden");
+  modal.setAttribute("aria-hidden", "true");
+  pagoModalPrestamoId = null;
+  pagoModalCuotaNumero = null;
+}
+
+function confirmarPagoCuota() {
+  let fechaPago = document.getElementById("modalPagoFecha").value.trim();
+  if (!fechaPago || isNaN(new Date(fechaPago).getTime())) {
+    mostrarNotificacion("Fecha inválida. Usa el formato YYYY-MM-DD.", "error");
+    return;
+  }
+
+  let prestamo = prestamos.find(p => p.id === pagoModalPrestamoId);
+  if (!prestamo) {
+    cerrarModalPago();
+    mostrarNotificacion("Préstamo no encontrado.", "error");
+    return;
+  }
+
+  let cuota = prestamo.cuotas.find(c => c.numero === pagoModalCuotaNumero);
+  if (!cuota) {
+    cerrarModalPago();
+    mostrarNotificacion("Cuota no encontrada.", "error");
+    return;
+  }
+
+  cuota.estado = "pagada";
+  cuota.fechaPago = fechaPago;
+  pagos.push({
+    id: Date.now(),
+    prestamoId: prestamo.id,
+    clienteId: prestamo.clienteId,
+    cuotaNumero: cuota.numero,
+    valor: cuota.valor,
+    fecha: fechaPago
+  });
+
+  let faltantes = prestamo.cuotas.filter(c => c.estado !== "pagada").length;
+  if (faltantes === 0) {
+    prestamo.estado = "Pagado";
+  }
+
+  localStorage.setItem("prestamos", JSON.stringify(prestamos));
+  localStorage.setItem("pagos", JSON.stringify(pagos));
+
+  cerrarModalPago();
+  renderDetalleCliente();
+  mostrarNotificacion("Pago registrado correctamente.", "success");
+}
 
 function hoy() {
   return new Date().toISOString().split("T")[0];
@@ -14,6 +88,31 @@ function sumarDias(fecha, dias) {
   let f = new Date(fecha);
   f.setDate(f.getDate() + dias);
   return f.toISOString().split("T")[0];
+}
+
+function sumarPeriodo(fecha, frecuencia, iteracion) {
+  let f = new Date(fecha);
+  switch (frecuencia) {
+    case "semanal":
+      f.setDate(f.getDate() + iteracion * 7);
+      break;
+    case "quincenal":
+      f.setDate(f.getDate() + iteracion * 15);
+      break;
+    case "mensual":
+      f.setMonth(f.getMonth() + iteracion);
+      break;
+    default:
+      f.setDate(f.getDate() + iteracion);
+      break;
+  }
+  return f.toISOString().split("T")[0];
+}
+
+function togglePersonalizado(valor) {
+  let nodo = document.getElementById("fechasPersonalizadas");
+  if (!nodo) return;
+  nodo.classList.toggle("hidden", valor !== "personalizado");
 }
 
 function actualizarMoras() {
@@ -93,29 +192,17 @@ function renderDetalleCliente() {
           <td class="${mora > 0 ? 'mora' : ''}">${mora}</td>
           <td>${estado}</td>
           <td class="action-group">
-            <button class="small" onclick="seleccionarPrestamo(${p.id})">Ver</button>
+            <button class="small btn-secondary" onclick="event.stopPropagation(); seleccionarPrestamo(${p.id})">Seleccionar</button>
+            <button class="small" onclick="event.stopPropagation(); pagarCuota(${p.id})">Pagar cuota</button>
           </td>
         </tr>
       `;
     }).join("")
     : `<tr><td colspan="7">No hay préstamos para este cliente.</td></tr>`;
 
-  let cuotasHTML = "";
-  let pagoBoton = "<p class='placeholder'>Selecciona un préstamo para ver sus cuotas.</p>";
-
-  if (selectedLoan) {
-    cuotasHTML = selectedLoan.cuotas.map(c => `
-      <tr class="${c.estado === 'mora' ? 'mora' : ''}">
-        <td>${c.numero}</td>
-        <td>${c.fecha}</td>
-        <td>${c.valor}</td>
-        <td>${c.estado}</td>
-      </tr>
-    `).join("");
-    pagoBoton = `<button onclick="pagarCuota(${selectedLoan.id})">Pagar próxima cuota</button>`;
-  }
-
-  let pagosCliente = pagos.filter(pg => pg.clienteId === clienteId);
+  let pagosCliente = selectedLoan
+    ? pagos.filter(pg => pg.prestamoId === selectedLoan.id)
+    : pagos.filter(pg => pg.clienteId === clienteId);
   let pagosHTML = pagosCliente.length
     ? pagosCliente.map(pg => `
       <tr>
@@ -146,10 +233,26 @@ function renderDetalleCliente() {
 
     <div class="loan-card">
       <h3>Nuevo préstamo</h3>
-      <input type="number" id="monto" placeholder="Monto prestado" />
-      <input type="number" id="interes" placeholder="Interés (%)" />
-      <input type="number" id="cuotas" placeholder="Número de cuotas diarias" />
+      <div class="field-grid">
+        <input type="number" id="monto" placeholder="Monto prestado" />
+        <input type="number" id="interes" placeholder="Interés (%)" />
+      </div>
+      <div class="field-grid">
+        <input type="number" id="cuotas" placeholder="Número de cuotas" />
+        <select id="frecuencia" onchange="togglePersonalizado(this.value)" aria-label="Frecuencia de pago">
+          <option value="diario">Diario</option>
+          <option value="semanal">Semanal</option>
+          <option value="quincenal">Quincenal</option>
+          <option value="mensual">Mensual</option>
+          <option value="personalizado">Personalizado</option>
+        </select>
+      </div>
+      <div id="fechasPersonalizadas" class="hidden">
+        <textarea id="fechasPersonalizadasInput" rows="4" placeholder="Escribe las fechas separadas por comas o líneas, por ejemplo 2026-05-01, 2026-05-15"></textarea>
+        <p class="help-text">Agrega una fecha para cada cuota. El formato recomendado es YYYY-MM-DD.</p>
+      </div>
       <button onclick="crearPrestamoCliente()">Crear préstamo</button>
+      <p class="help-text">El sistema calcula automáticamente el calendario de cuotas según la frecuencia elegida.</p>
     </div>
 
     <div class="loan-card">
@@ -172,33 +275,6 @@ function renderDetalleCliente() {
           </tbody>
         </table>
       </div>
-    </div>
-
-    <div class="loan-detail card">
-      <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:16px;">
-        <h3>Detalle del préstamo</h3>
-      </div>
-      ${selectedLoan ? `
-        <p><span>Total:</span> ${Math.round(selectedLoan.total)}</p>
-        <p><span>Pagado:</span> ${totalPagado(selectedLoan)}</p>
-        <p><span>Saldo:</span> ${saldoPendiente(selectedLoan)}</p>
-        ${pagoBoton}
-        <div class="table-container" style="margin-top:18px;">
-          <table>
-            <thead>
-              <tr>
-                <th>#</th>
-                <th>Fecha</th>
-                <th>Valor</th>
-                <th>Estado</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${cuotasHTML}
-            </tbody>
-          </table>
-        </div>
-      ` : `<p class="placeholder">Selecciona un préstamo para ver los detalles.</p>`}
     </div>
 
     <div class="payment-history card">
@@ -232,9 +308,10 @@ function crearPrestamoCliente() {
   let monto = parseFloat(document.getElementById("monto").value);
   let interes = parseFloat(document.getElementById("interes").value);
   let numCuotas = parseInt(document.getElementById("cuotas").value, 10);
+  let frecuencia = document.getElementById("frecuencia").value;
 
   if (isNaN(monto) || isNaN(interes) || isNaN(numCuotas) || monto <= 0 || numCuotas <= 0) {
-    alert("Complete todos los datos correctamente.");
+    mostrarNotificacion("Complete todos los datos correctamente.", "error");
     return;
   }
 
@@ -244,17 +321,50 @@ function crearPrestamoCliente() {
   let fechaInicio = hoy();
 
   let listaCuotas = [];
-  for (let i = 0; i < numCuotas; i++) {
-    let valorCuota = valorCuotaBase;
-    if (i === numCuotas - 1) {
-      valorCuota += resto;
+  if (frecuencia === "personalizado") {
+    let fechasTexto = document.getElementById("fechasPersonalizadasInput").value;
+    let fechas = fechasTexto
+      .split(/[,\n;]+/)
+      .map(item => item.trim())
+      .filter(Boolean);
+
+    if (fechas.length !== numCuotas) {
+      mostrarNotificacion(`Debes ingresar exactamente ${numCuotas} fechas para el pago personalizado.`, "error");
+      return;
     }
-    listaCuotas.push({
-      numero: i + 1,
-      fecha: sumarDias(fechaInicio, i),
-      valor: valorCuota,
-      estado: "pendiente"
+
+    let fechasValidas = fechas.every(fecha => !isNaN(new Date(fecha).getTime()));
+    if (!fechasValidas) {
+      mostrarNotificacion("Asegúrate de ingresar fechas válidas en formato YYYY-MM-DD.", "error");
+      return;
+    }
+
+    fechas.forEach((fecha, index) => {
+      let valorCuota = valorCuotaBase;
+      if (index === numCuotas - 1) {
+        valorCuota += resto;
+      }
+      listaCuotas.push({
+        numero: index + 1,
+        fecha,
+        valor: valorCuota,
+        estado: "pendiente"
+      });
     });
+    fechaInicio = fechas[0] || fechaInicio;
+  } else {
+    for (let i = 0; i < numCuotas; i++) {
+      let valorCuota = valorCuotaBase;
+      if (i === numCuotas - 1) {
+        valorCuota += resto;
+      }
+      listaCuotas.push({
+        numero: i + 1,
+        fecha: sumarPeriodo(fechaInicio, frecuencia, i),
+        valor: valorCuota,
+        estado: "pendiente"
+      });
+    }
   }
 
   let prestamo = {
@@ -264,6 +374,7 @@ function crearPrestamoCliente() {
     interes,
     total,
     numeroCuotas: numCuotas,
+    frecuencia,
     fechaInicio,
     estado: "Activo",
     cuotas: listaCuotas
@@ -283,7 +394,7 @@ function crearPrestamoCliente() {
 function pagarCuota(prestamoId) {
   let prestamo = prestamos.find(p => p.id === prestamoId);
   if (!prestamo) {
-    alert("Préstamo no encontrado.");
+    mostrarNotificacion("Préstamo no encontrado.", "error");
     return;
   }
 
@@ -291,33 +402,19 @@ function pagarCuota(prestamoId) {
 
   let cuota = prestamo.cuotas.find(c => c.estado === "mora" || c.estado === "pendiente");
   if (!cuota) {
-    alert("No hay cuotas pendientes.");
+    mostrarNotificacion("No hay cuotas pendientes.", "warning");
     prestamo.estado = "Pagado";
     localStorage.setItem("prestamos", JSON.stringify(prestamos));
     renderDetalleCliente();
     return;
   }
 
-  cuota.estado = "pagada";
-  pagos.push({
-    id: Date.now(),
-    prestamoId: prestamo.id,
-    clienteId: prestamo.clienteId,
-    cuotaNumero: cuota.numero,
-    valor: cuota.valor,
-    fecha: hoy()
-  });
-
-  let faltantes = prestamo.cuotas.filter(c => c.estado !== "pagada").length;
-  if (faltantes === 0) {
-    prestamo.estado = "Pagado";
-  }
-
-  localStorage.setItem("prestamos", JSON.stringify(prestamos));
-  localStorage.setItem("pagos", JSON.stringify(pagos));
-
-  renderDetalleCliente();
-  alert("Cuota pagada correctamente.");
+  pagoModalPrestamoId = prestamo.id;
+  pagoModalCuotaNumero = cuota.numero;
+  document.getElementById("modalPagoTitle").textContent = `Pagar cuota #${cuota.numero}`;
+  document.getElementById("modalPagoTexto").textContent = `Monto: ${cuota.valor}. Vencimiento: ${cuota.fecha}`;
+  document.getElementById("modalPagoFecha").value = hoy();
+  abrirModalPago();
 }
 
 document.addEventListener("DOMContentLoaded", () => {

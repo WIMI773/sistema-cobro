@@ -25,6 +25,23 @@
     </section>
   </main>
 
+  <div id="modalPago" class="modal-overlay hidden" aria-hidden="true" onclick="if (event.target === this) cerrarModalPago()">
+    <div class="modal-window" role="dialog" aria-modal="true" aria-labelledby="modalPagoTitle">
+      <h2 id="modalPagoTitle" class="modal-title">Pagar cuota</h2>
+      <p id="modalPagoTexto" class="modal-content">Selecciona la fecha de pago manualmente.</p>
+      <div class="modal-field">
+        <label for="modalPagoFecha">Fecha de pago</label>
+        <input id="modalPagoFecha" type="date" />
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn-secondary small" onclick="cerrarModalPago()">Cancelar</button>
+        <button type="button" onclick="confirmarPagoCuota()">Confirmar pago</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+
   <script src="detalle.js"></script>
 </body>
 </html>

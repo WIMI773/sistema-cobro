@@ -41,11 +41,22 @@ function guardarCliente() {
 
   clienteSeleccionadoId = cliente.id;
   cargarClientes();
+  ocultarNuevoCliente();
 }
 
 function buscarClientes() {
   terminoBusqueda = document.getElementById("buscarCliente").value;
   cargarClientes();
+}
+
+function toggleNuevoCliente() {
+  let card = document.getElementById("nuevoClienteCard");
+  card.classList.toggle("hidden");
+}
+
+function ocultarNuevoCliente() {
+  let card = document.getElementById("nuevoClienteCard");
+  card.classList.add("hidden");
 }
 
 function cargarClientes() {
@@ -72,13 +83,12 @@ function cargarClientes() {
   lista.forEach(c => {
     let seleccionado = c.id === clienteSeleccionadoId ? "activo" : "";
     tabla.innerHTML += `
-      <tr class="${seleccionado}">
+      <tr class="${seleccionado} clickable" onclick="seleccionarCliente(${c.id})">
         <td>${c.nombre}</td>
         <td>${c.cedula}</td>
         <td>${c.telefono || "-"}</td>
         <td class="action-group">
-          <button class="small" onclick="seleccionarCliente(${c.id})">Abrir</button>
-          <button class="small btn-danger" onclick="eliminarCliente(${c.id})">Eliminar</button>
+          <button class="small btn-danger" onclick="event.stopPropagation(); eliminarCliente(${c.id})">Eliminar</button>
         </td>
       </tr>
     `;

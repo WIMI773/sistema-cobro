@@ -20,17 +20,18 @@
     <aside class="panel panel-left">
       <div class="card card-small">
         <h2>Buscar cliente</h2>
-        <input type="text" id="buscarCliente" placeholder="Buscar por nombre o c�dula" oninput="buscarClientes()" />
+        <input type="text" id="buscarCliente" placeholder="Buscar por nombre o cédula" oninput="buscarClientes()" />
       </div>
 
-      <div class="card card-small">
-        <h2>Agregar cliente</h2>
+      <div id="nuevoClienteCard" class="card card-small hidden">
+        <h2>Nuevo cliente</h2>
         <input type="text" id="nombre" placeholder="Nombre" />
-        <input type="text" id="cedula" placeholder="C�dula" />
-        <input type="text" id="telefono" placeholder="Tel�fono" />
-        <input type="text" id="direccion" placeholder="Direcci�n" />
+        <input type="text" id="cedula" placeholder="Cédula" />
+        <input type="text" id="telefono" placeholder="Teléfono" />
+        <input type="text" id="direccion" placeholder="Dirección" />
         <input type="text" id="foto" placeholder="URL de foto de perfil (opcional)" />
-        <button onclick="guardarCliente()">Guardar Cliente</button>
+        <button onclick="guardarCliente()">Guardar cliente</button>
+        <button type="button" class="btn-secondary" onclick="ocultarNuevoCliente()">Cancelar</button>
       </div>
 
       <div class="card">
@@ -40,9 +41,9 @@
             <thead>
               <tr>
                 <th>Nombre</th>
-                <th>C�dula</th>
-                <th>Tel�fono</th>
-                <th>Acci�n</th>
+                <th>Cédula</th>
+                <th>Teléfono</th>
+                <th>Acción</th>
               </tr>
             </thead>
             <tbody id="tablaClientes"></tbody>
@@ -50,16 +51,9 @@
         </div>
       </div>
     </aside>
-
-    <section class="panel panel-right">
-      <div class="card">
-        <h2>Ficha del cliente</h2>
-        <div class="placeholder">
-          <p>Selecciona un cliente y su información se abrirá en una pestaña nueva.</p>
-        </div>
-      </div>
-    </section>
   </main>
+
+  <button class="fab" onclick="toggleNuevoCliente()" aria-label="Crear cliente">+</button>
 
   <script src="app.js"></script>
 </body>
