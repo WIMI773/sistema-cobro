@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Login - Sistema de Cobro</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="login-page">
+    <div class="login-card">
+      <div class="tabs">
+        <button id="loginTab" type="button" class="tab-button active">Iniciar sesión</button>
+        <button id="registerTab" type="button" class="tab-button">Crear cuenta</button>
+      </div>
+      <h1 id="formTitle">Accede a tu sistema</h1>
+      <p id="formSubtitle">Usa correo y contraseña para guardar tus clientes, préstamos y pagos en Firebase.</p>
+      <input id="email" type="email" placeholder="Correo electrónico" autocomplete="username" />
+      <input id="password" type="password" placeholder="Contraseña" autocomplete="current-password" />
+      <button id="actionBtn" type="button">Iniciar sesión</button>
+      <p id="authMessage" class="auth-message"></p>
+    </div>
+  </main>
+
+  <script type="module">
+    import { loginWithEmail, registerWithEmail, onAuthChange } from './firebase.js';
+
+    const emailInput = document.getElementById('email');
+    const passwordInput = document.getElementById('password');
+    const authMessage = document.getElementById('authMessage');
+    const actionBtn = document.getElementById('actionBtn');
+    const loginTab = document.getElementById('loginTab');
+    const registerTab = document.getElementById('registerTab');
+    const formTitle = document.getElementById('formTitle');
+    const formSubtitle = document.getElementById('formSubtitle');
+
+    let mode = 'login';
+
+    function mostrarMensaje(texto, tipo = 'error') {
+      authMessage.textContent = texto;
+      authMessage.className = `auth-message ${tipo}`;
+    }
+
+    function validarFormulario() {
+      const email = emailInput.value.trim();
+      const password = passwordInput.value.trim();
+
+      if (!email || !password) {
+        mostrarMensaje('Ingresa correo y contraseña.', 'error');
+        return false;
+      }
+
+      const emailValido = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+      if (!emailValido) {
+        mostrarMensaje('Ingresa un correo válido.', 'error');
+        return false;
+      }
+
+      if (password.length < 6) {
+        mostrarMensaje('La contraseña debe tener al menos 6 caracteres.', 'error');
+        return false;
+      }
+
+      return true;
+    }
+
+    async function iniciarSesion() {
+      if (!validarFormulario()) return;
+
+      try {
+        authMessage.textContent = '';
+        await loginWithEmail(emailInput.value.trim(), passwordInput.value.trim());
+      } catch (error) {
+        mostrarMensaje(`${error.code || 'ERROR'}: ${error.message || 'No se pudo iniciar sesión.'}`);
+        console.error('Login error:', error);
+      }
+    }
+
+    async function crearCuenta() {
+      if (!validarFormulario()) return;
+
+      try {
+        authMessage.textContent = '';
+        await registerWithEmail(emailInput.value.trim(), passwordInput.value.trim());
+        mostrarMensaje('Cuenta creada correctamente. Redirigiendo...', 'success');
+      } catch (error) {
+        mostrarMensaje(`${error.code || 'ERROR'}: ${error.message || 'No se pudo crear la cuenta.'}`);
+        console.error('Register error:', error);
+      }
+    }
+
+    function actualizarModo(nuevoModo) {
+      mode = nuevoModo;
+      loginTab.classList.toggle('active', mode === 'login');
+      registerTab.classList.toggle('active', mode === 'register');
+      actionBtn.textContent = mode === 'login' ? 'Iniciar sesión' : 'Crear cuenta';
+      formTitle.textContent = mode === 'login' ? 'Accede a tu sistema' : 'Crea una cuenta nueva';
+      formSubtitle.textContent = mode === 'login'
+        ? 'Usa correo y contraseña para entrar y guardar tus clientes, préstamos y pagos en Firebase.'
+        : 'Registra un correo y contraseña para comenzar a usar el sistema desde cualquier dispositivo.';
+      mostrarMensaje('');
+    }
+
+    actionBtn.addEventListener('click', () => {
+      if (mode === 'login') {
+        iniciarSesion();
+      } else {
+        crearCuenta();
+      }
+    });
+
+    loginTab.addEventListener('click', () => actualizarModo('login'));
+    registerTab.addEventListener('click', () => actualizarModo('register'));
+
+    onAuthChange(user => {
+      if (user) {
+        window.location.href = 'index.html';
+      }
+    });
+  </script>
+</body>
+</html>

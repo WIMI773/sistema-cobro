@@ -1,15 +1,85 @@
-let clientes = JSON.parse(localStorage.getItem("clientes")) || [];
-let prestamos = JSON.parse(localStorage.getItem("prestamos")) || [];
-let pagos = JSON.parse(localStorage.getItem("pagos")) || [];
+﻿import { db, logout, onAuthChange } from "./firebase.js";
+import {
+  collection,
+  query,
+  where,
+  orderBy,
+  getDocs,
+  setDoc,
+  doc,
+  deleteDoc
+} from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+
+let clientes = [];
+let prestamos = [];
+let pagos = [];
 
 let clienteSeleccionadoId = null;
 let terminoBusqueda = "";
+let userId = null;
+
+onAuthChange(async user => {
+  if (!user) {
+    window.location.href = "login.html";
+    return;
+  }
+
+  userId = user.uid;
+  const usuarioEmail = document.getElementById("usuarioEmail");
+  if (usuarioEmail) {
+    usuarioEmail.textContent = user.email || "";
+  }
+
+  const logoutButton = document.getElementById("logoutButton");
+  if (logoutButton) {
+    logoutButton.onclick = async () => {
+      await logout();
+      window.location.href = "login.html";
+    };
+  }
+
+  await cargarDatosUsuario();
+});
+
+async function cargarDatosUsuario() {
+  await Promise.all([cargarClientes(), cargarPrestamos(), cargarPagos()]);
+}
+
+async function cargarClientes() {
+  if (!userId) return;
+
+  const consulta = query(
+    collection(db, "clientes"),
+    where("userId", "==", userId)
+  );
+  const snapshot = await getDocs(consulta);
+  clientes = snapshot.docs
+    .map(doc => ({ id: doc.id, ...doc.data() }))
+    .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' }));
+  renderClientes();
+}
+
+async function cargarPrestamos() {
+  if (!userId) return;
+
+  const consulta = query(collection(db, "prestamos"), where("userId", "==", userId));
+  const snapshot = await getDocs(consulta);
+  prestamos = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+}
+
+async function cargarPagos() {
+  if (!userId) return;
+
+  const consulta = query(collection(db, "pagos"), where("userId", "==", userId));
+  const snapshot = await getDocs(consulta);
+  pagos = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+}
 
 function hoy() {
   return new Date().toISOString().split("T")[0];
 }
 
-function guardarCliente() {
+async function guardarCliente() {
   let nombre = document.getElementById("nombre").value.trim();
   let cedula = document.getElementById("cedula").value.trim();
   let telefono = document.getElementById("telefono").value.trim();
@@ -17,21 +87,22 @@ function guardarCliente() {
   let foto = document.getElementById("foto").value.trim();
 
   if (!nombre || !cedula) {
-    alert("Nombre y c�dula son obligatorios");
+    alert("Nombre y cédula son obligatorios");
     return;
   }
 
-  let cliente = {
-    id: Date.now(),
+  const id = Date.now().toString();
+  const cliente = {
     nombre,
     cedula,
     telefono,
     direccion,
-    foto
+    foto,
+    userId
   };
 
-  clientes.push(cliente);
-  localStorage.setItem("clientes", JSON.stringify(clientes));
+  await setDoc(doc(db, "clientes", id), cliente);
+  clientes.push({ id, ...cliente });
 
   document.getElementById("nombre").value = "";
   document.getElementById("cedula").value = "";
@@ -39,14 +110,14 @@ function guardarCliente() {
   document.getElementById("direccion").value = "";
   document.getElementById("foto").value = "";
 
-  clienteSeleccionadoId = cliente.id;
-  cargarClientes();
+  clienteSeleccionadoId = id;
+  await cargarClientes();
   ocultarNuevoCliente();
 }
 
 function buscarClientes() {
   terminoBusqueda = document.getElementById("buscarCliente").value;
-  cargarClientes();
+  renderClientes();
 }
 
 function toggleNuevoCliente() {
@@ -59,7 +130,7 @@ function ocultarNuevoCliente() {
   card.classList.add("hidden");
 }
 
-function cargarClientes() {
+function renderClientes() {
   let tabla = document.getElementById("tablaClientes");
   if (!tabla) return;
 
@@ -83,42 +154,42 @@ function cargarClientes() {
   lista.forEach(c => {
     let seleccionado = c.id === clienteSeleccionadoId ? "activo" : "";
     tabla.innerHTML += `
-      <tr class="${seleccionado} clickable" onclick="seleccionarCliente(${c.id})">
+      <tr class="${seleccionado} clickable" onclick="seleccionarCliente('${c.id}')">
         <td>${c.nombre}</td>
         <td>${c.cedula}</td>
         <td>${c.telefono || "-"}</td>
         <td class="action-group">
-          <button class="small btn-danger" onclick="event.stopPropagation(); eliminarCliente(${c.id})">Eliminar</button>
+          <button class="small btn-danger" onclick="event.stopPropagation(); eliminarCliente('${c.id}')">Eliminar</button>
         </td>
       </tr>
     `;
   });
 }
 
-function eliminarCliente(id) {
-  if (!confirm("�Eliminar cliente?")) return;
+async function eliminarCliente(id) {
+  if (!confirm("¿Eliminar cliente?")) return;
 
-  clientes = clientes.filter(c => c.id !== id);
-  prestamos = prestamos.filter(p => p.clienteId !== id);
-  pagos = pagos.filter(pg => pg.clienteId !== id);
+  await deleteDoc(doc(db, "clientes", id));
 
-  localStorage.setItem("clientes", JSON.stringify(clientes));
-  localStorage.setItem("prestamos", JSON.stringify(prestamos));
-  localStorage.setItem("pagos", JSON.stringify(pagos));
+  const prestamosDelCliente = prestamos.filter(p => p.clienteId === id);
+  await Promise.all(prestamosDelCliente.map(p => deleteDoc(doc(db, "prestamos", p.id))));
 
-  if (clienteSeleccionadoId === id) {
-    clienteSeleccionadoId = null;
-  }
+  const pagosDelCliente = pagos.filter(pg => pg.clienteId === id);
+  await Promise.all(pagosDelCliente.map(pg => deleteDoc(doc(db, "pagos", pg.id))));
 
-  cargarClientes();
+  clienteSeleccionadoId = clienteSeleccionadoId === id ? null : clienteSeleccionadoId;
+  await cargarDatosUsuario();
 }
 
 function seleccionarCliente(id) {
   clienteSeleccionadoId = id;
-  cargarClientes();
-  window.open(`detalle.html?clienteId=${id}`, '_blank');
+  renderClientes();
+  window.location.href = `detalle.html?clienteId=${id}`;
 }
 
-document.addEventListener("DOMContentLoaded", () => {
-  cargarClientes();
-});
+window.buscarClientes = buscarClientes;
+window.toggleNuevoCliente = toggleNuevoCliente;
+window.ocultarNuevoCliente = ocultarNuevoCliente;
+window.guardarCliente = guardarCliente;
+window.seleccionarCliente = seleccionarCliente;
+window.eliminarCliente = eliminarCliente;

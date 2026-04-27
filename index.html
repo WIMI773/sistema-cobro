@@ -11,9 +11,10 @@
     <div class="header-content">
       <div>
         <h1>Sistema de Cobro</h1>
-        <p>Selecciona un cliente y administra su perfil, pr�stamos, cuotas y pagos desde un �nico panel.</p>
-      </div>
-    </div>
+      </div>      <div class="header-actions">
+        <span id="usuarioEmail"></span>
+        <button id="logoutButton" class="btn-secondary small">Cerrar sesión</button>
+      </div>    </div>
   </header>
 
   <main class="dashboard">
@@ -55,6 +56,6 @@
 
   <button class="fab" onclick="toggleNuevoCliente()" aria-label="Crear cliente">+</button>
 
-  <script src="app.js"></script>
+  <script type="module" src="app.js"></script>
 </body>
 </html>

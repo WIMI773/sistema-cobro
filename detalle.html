@@ -11,7 +11,10 @@
     <div class="header-content">
       <div>
         <h1>Detalle del cliente</h1>
-        <p>Revisa el perfil, préstamos y pagos del cliente seleccionado en una pestaña independiente.</p>
+      </div>
+      <div class="header-actions">
+        <span id="usuarioEmail"></span>
+        <button id="logoutButton" class="btn-secondary small">Cerrar sesión</button>
       </div>
     </div>
   </header>
@@ -19,7 +22,7 @@
   <main class="dashboard">
     <section class="panel panel-right">
       <div class="card">
-        <a href="index.html" class="btn-secondary small" style="margin-bottom:16px; display:inline-block;">← Volver al dashboard</a>
+        <a href="index.html" class="btn-secondary small" style="margin-bottom:16px; display:inline-block;">← </a>
         <div id="detalleContainer"></div>
       </div>
     </section>
@@ -42,6 +45,6 @@
 
   <div id="toast" class="toast hidden"></div>
 
-  <script src="detalle.js"></script>
+  <script type="module" src="detalle.js"></script>
 </body>
 </html>

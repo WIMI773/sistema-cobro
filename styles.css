@@ -12,8 +12,8 @@ body {
 
 /* ─── HEADER ─── */
 header {
-  background: #111827;
-  color: white;
+  background: #0a023a;
+  color: rgb(255, 255, 255);
   padding: 18px 16px;
 }
 
@@ -34,10 +34,58 @@ header h1 {
 
 header p {
   margin: 8px 0 0;
-  color: #d1d5db;
+  color: #ffffff;
   line-height: 1.6;
   font-size: 0.9rem;
   max-width: 720px;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.header-actions span {
+  color: #e1e1e1;
+  font-size: 0.95rem;
+}
+
+.login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: #0a023a;
+}
+
+.login-card {
+  width: min(420px, 100%);
+  background: rgb(200, 200, 200);
+  padding: 32px;
+  border-radius: 24px;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.12);
+}
+
+.login-card h1 {
+  margin: 0 0 12px;
+  font-size: 1.8rem;
+}
+
+.login-card p {
+  margin: 0 0 18px;
+  color: #4b5563;
+}
+
+.auth-message {
+  margin-top: 14px;
+  font-size: 0.95rem;
+  color: #dc2626;
+}
+
+.auth-message.success {
+  color: #16a34a;
 }
 
 /* ─── DASHBOARD ─── */
@@ -287,7 +335,30 @@ button.btn-secondary:hover { background: #374151; }
   line-height: 1.5;
 }
 
+.manual-cuotas-grid {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.manual-cuota-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  align-items: flex-end;
+}
+
+.manual-cuota-row label {
+  grid-column: span 2;
+  margin-bottom: 4px;
+  font-weight: 700;
+  color: #111827;
+}
+
 @media (max-width: 720px) {
+  .manual-cuota-row {
+    grid-template-columns: 1fr;
+  }
   .field-grid {
     grid-template-columns: 1fr;
   }
@@ -470,6 +541,38 @@ td .action-group {
 .profile-info p span {
   font-weight: 700;
   color: #111827;
+}
+
+.profile-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.profile-actions .action-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: #2563eb;
+  color: white;
+  text-decoration: none;
+  font-weight: 700;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+}
+
+.profile-actions .action-button:hover {
+  background: #1d4ed8;
+}
+
+.profile-actions .action-button.secondary {
+  background: #4b5563;
+}
+
+.profile-actions .action-button.secondary:hover {
+  background: #374151;
 }
 
 /* ─── STATS ─── */
