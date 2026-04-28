@@ -3,7 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#2563eb" />
   <title>Detalle Cliente</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="logocobro.png" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -44,6 +47,7 @@
   </div>
 
   <div id="toast" class="toast hidden"></div>
+  <button id="btnNuevoPrestamoFab" class="fab" type="button" onclick="abrirTabPrestamo()" aria-label="Nuevo préstamo">+</button>
 
   <script type="module" src="detalle.js"></script>
 </body>

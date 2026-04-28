@@ -1,0 +1,23 @@
+{
+  "name": "CrediApp - Cobro Diario",
+  "short_name": "CrediApp",
+  "description": "Administra clientes, préstamos y pagos desde tu dispositivo móvil.",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0a123d",
+  "theme_color": "#2563eb",
+  "icons": [
+    {
+      "src": "logocobro.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "logocobro.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

@@ -6,8 +6,19 @@ import {
   getDocs,
   setDoc,
   doc,
-  updateDoc
+  updateDoc,
+  deleteDoc
 } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(error => {
+    console.warn('Service worker registration failed:', error);
+  });
+  window.addEventListener('beforeinstallprompt', event => {
+    event.preventDefault();
+    window.deferredInstallPrompt = event;
+  });
+}
 
 let clientes = [];
 let prestamos = [];
@@ -18,6 +29,7 @@ const clienteId = params.get("clienteId");
 let prestamoSeleccionadoId = null;
 let pagoModalPrestamoId = null;
 let pagoModalCuotaNumero = null;
+let detalleTab = "info";
 let userId = null;
 
 function mostrarNotificacion(mensaje, tipo = "info") {
@@ -49,6 +61,15 @@ function cerrarModalPago() {
 
 function hoy() {
   return new Date().toISOString().split("T")[0];
+}
+
+function setDetalleTab(tab) {
+  detalleTab = tab;
+  renderDetalleCliente();
+}
+
+function abrirTabPrestamo() {
+  setDetalleTab("prestamo");
 }
 
 function sumarPeriodo(fecha, frecuencia, iteracion) {
@@ -270,6 +291,7 @@ async function renderDetalleCliente() {
           <div class="loan-item-actions">
             <button class="small btn-secondary" onclick="event.stopPropagation(); seleccionarPrestamo('${p.id}')">Ver</button>
             <button class="small" onclick="event.stopPropagation(); pagarCuota('${p.id}')">Pagar cuota</button>
+            <button class="small btn-danger" onclick="event.stopPropagation(); eliminarPrestamo('${p.id}')">Eliminar préstamo</button>
           </div>
         </div>
       `;
@@ -331,66 +353,76 @@ async function renderDetalleCliente() {
       </div>
     </div>
 
-    <div class="stats-grid">
-      <div class="stats-card"><span class="badge">Préstamos</span><strong>${prestamosCliente.length}</strong></div>
-      <div class="stats-card"><span class="badge">Total deuda</span><strong>${totalDeuda}</strong></div>
-      <div class="stats-card"><span class="badge">Pagado</span><strong>${totalPagadoCliente}</strong></div>
-      <div class="stats-card"><span class="badge">Cuotas en mora</span><strong>${totalMora}</strong></div>
-      ${selectedLoanSummaryHTML}
+    <div class="tabs">
+      <button class="tab-button ${detalleTab === "info" ? "active" : ""}" type="button" onclick="setDetalleTab('info')">Información</button>
+      <button class="tab-button ${detalleTab === "prestamo" ? "active" : ""}" type="button" onclick="setDetalleTab('prestamo')">Nuevo préstamo</button>
     </div>
 
-    ${selectedLoanPayCardHTML}
+    <div class="tab-pane ${detalleTab === "info" ? 'active' : ''}" id="tab-info">
+      <div class="stats-grid">
+        <div class="stats-card"><span class="badge">Préstamos</span><strong>${prestamosCliente.length}</strong></div>
+        <div class="stats-card"><span class="badge">Total deuda</span><strong>${totalDeuda}</strong></div>
+        <div class="stats-card"><span class="badge">Pagado</span><strong>${totalPagadoCliente}</strong></div>
+        <div class="stats-card"><span class="badge">Cuotas en mora</span><strong>${totalMora}</strong></div>
+        ${selectedLoanSummaryHTML}
+      </div>
 
-    <div class="loan-card">
-      <h3>Nuevo préstamo</h3>
-      <div class="field-grid">
-        <input type="number" id="monto" placeholder="Monto prestado" />
-        <input type="number" id="interes" placeholder="Interés (%)" />
-      </div>
-      <div class="field-grid">
-        <input type="number" id="valorCuota" placeholder="Valor cuota (opcional)" />
-        <input type="number" id="cuotas" placeholder="Número de cuotas" />
-      </div>
-      <div class="field-grid">
-        <select id="frecuencia" onchange="toggleManual(this.value)" aria-label="Frecuencia de pago">
-          <option value="diario">Diario</option>
-          <option value="semanal">Semanal</option>
-          <option value="quincenal">Quincenal</option>
-          <option value="mensual">Mensual</option>
-          <option value="manual">Manual</option>
-        </select>
-      </div>
-      <div id="manualCuotasSection" class="hidden">
-        <button type="button" class="small btn-secondary" onclick="renderManualCuotasRows()">Generar filas de cuotas manuales</button>
-        <div id="manualCuotasRows" class="manual-cuotas-grid"></div>
-        <p class="help-text">Inserta fecha y valor para cada cuota. Si cambias el número de cuotas, pulsa el botón de nuevo.</p>
-      </div>
-      <button onclick="crearPrestamoCliente()">Crear préstamo</button>
-      <p class="help-text">El sistema calcula automáticamente la fecha de las cuotas según la frecuencia elegida. Si quieres, puedes ingresar el valor de cada cuota manualmente con el campo Valor cuota.</p>
-    </div>
+      ${selectedLoanPayCardHTML}
 
-    <div class="loan-card">
-      <h3>Préstamos de ${cliente.nombre}</h3>
-      <div class="loan-list">
-        ${prestamosHTML}
+      <div class="loan-card">
+        <h3>Préstamos de ${cliente.nombre}</h3>
+        <div class="loan-list">
+          ${prestamosHTML}
+        </div>
+      </div>
+
+      <div class="payment-history card">
+        <h3>Historial de pagos</h3>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>N° cuota</th>
+                <th>Valor</th>
+                <th>Fecha</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${pagosHTML}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
 
-    <div class="payment-history card">
-      <h3>Historial de pagos</h3>
-      <div class="table-container">
-        <table>
-          <thead>
-            <tr>
-              <th>N° cuota</th>
-              <th>Valor</th>
-              <th>Fecha</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${pagosHTML}
-          </tbody>
-        </table>
+    <div class="tab-pane ${detalleTab === "prestamo" ? 'active' : ''}" id="tab-prestamo">
+      <div class="loan-card">
+        <h3>Nuevo préstamo</h3>
+        <div class="field-grid">
+          <input type="number" id="monto" placeholder="Monto prestado" />
+          <input type="number" id="interes" placeholder="Interés (%)" />
+        </div>
+        <div class="field-grid">
+          <input type="number" id="valorCuota" placeholder="Valor cuota (opcional)" />
+          <input type="number" id="cuotas" placeholder="Número de cuotas" />
+        </div>
+        <div class="field-grid">
+          <select id="frecuencia" onchange="toggleManual(this.value)" aria-label="Frecuencia de pago">
+            <option value="diario">Diario</option>
+            <option value="semanal">Semanal</option>
+            <option value="quincenal">Quincenal</option>
+            <option value="mensual">Mensual</option>
+            <option value="manual">Manual</option>
+          </select>
+        </div>
+        <div id="manualCuotasSection" class="hidden">
+          <button type="button" class="small btn-secondary" onclick="renderManualCuotasRows()">Generar filas de cuotas manuales</button>
+          <div id="manualCuotasRows" class="manual-cuotas-grid"></div>
+          <p class="help-text">Inserta fecha y valor para cada cuota. Si cambias el número de cuotas, pulsa el botón de nuevo.</p>
+        </div>
+        <button onclick="crearPrestamoCliente()">Crear préstamo</button>
+        <button type="button" class="btn-secondary small" onclick="setDetalleTab('info')">Volver a información</button>
+        <p class="help-text">El sistema calcula automáticamente la fecha de las cuotas según la frecuencia elegida. Si quieres, puedes ingresar el valor de cada cuota manualmente con el campo Valor cuota.</p>
       </div>
     </div>
   `;
@@ -525,6 +557,25 @@ async function pagarCuota(prestamoId) {
   abrirModalPago();
 }
 
+async function eliminarPrestamo(prestamoId) {
+  if (!confirm("¿Eliminar este préstamo?")) return;
+
+  await deleteDoc(doc(db, "prestamos", prestamoId));
+  await Promise.all(pagos
+    .filter(pg => pg.prestamoId === prestamoId)
+    .map(pg => deleteDoc(doc(db, "pagos", pg.id))));
+
+  prestamos = prestamos.filter(p => p.id !== prestamoId);
+  pagos = pagos.filter(pg => pg.prestamoId !== prestamoId);
+  if (prestamoSeleccionadoId === prestamoId) {
+    prestamoSeleccionadoId = null;
+  }
+  mostrarNotificacion("Préstamo eliminado.", "success");
+  await cargarPrestamos();
+  await cargarPagos();
+  renderDetalleCliente();
+}
+
 async function confirmarPagoCuota() {
   let fechaPago = document.getElementById("modalPagoFecha").value.trim();
   if (!fechaPago || isNaN(new Date(fechaPago).getTime())) {
@@ -576,10 +627,13 @@ async function confirmarPagoCuota() {
 window.seleccionarPrestamo = seleccionarPrestamo;
 window.crearPrestamoCliente = crearPrestamoCliente;
 window.pagarCuota = pagarCuota;
+window.eliminarPrestamo = eliminarPrestamo;
 window.toggleManual = toggleManual;
 window.confirmarPagoCuota = confirmarPagoCuota;
 window.abrirModalPago = abrirModalPago;
 window.cerrarModalPago = cerrarModalPago;
+window.setDetalleTab = setDetalleTab;
+window.abrirTabPrestamo = abrirTabPrestamo;
 
 onAuthChange(async user => {
   if (!user) {

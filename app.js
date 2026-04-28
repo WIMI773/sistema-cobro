@@ -10,12 +10,23 @@ import {
   deleteDoc
 } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(error => {
+    console.warn('Service worker registration failed:', error);
+  });
+  window.addEventListener('beforeinstallprompt', event => {
+    event.preventDefault();
+    window.deferredInstallPrompt = event;
+  });
+}
+
 let clientes = [];
 let prestamos = [];
 let pagos = [];
 
 let clienteSeleccionadoId = null;
 let terminoBusqueda = "";
+let clienteFotoDataUrl = "";
 let userId = null;
 
 onAuthChange(async user => {
@@ -84,7 +95,7 @@ async function guardarCliente() {
   let cedula = document.getElementById("cedula").value.trim();
   let telefono = document.getElementById("telefono").value.trim();
   let direccion = document.getElementById("direccion").value.trim();
-  let foto = document.getElementById("foto").value.trim();
+  let foto = clienteFotoDataUrl;
 
   if (!nombre || !cedula) {
     alert("Nombre y cédula son obligatorios");
@@ -108,7 +119,11 @@ async function guardarCliente() {
   document.getElementById("cedula").value = "";
   document.getElementById("telefono").value = "";
   document.getElementById("direccion").value = "";
-  document.getElementById("foto").value = "";
+  clienteFotoDataUrl = "";
+  const fotoSeleccionada = document.getElementById("fotoSeleccionada");
+  if (fotoSeleccionada) {
+    fotoSeleccionada.textContent = "No hay foto seleccionada";
+  }
 
   clienteSeleccionadoId = id;
   await cargarClientes();
@@ -118,6 +133,29 @@ async function guardarCliente() {
 function buscarClientes() {
   terminoBusqueda = document.getElementById("buscarCliente").value;
   renderClientes();
+}
+
+function handleClienteFotoFile(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+  if (!file.type.startsWith("image/")) {
+    alert("Selecciona una imagen válida.");
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = () => {
+    clienteFotoDataUrl = reader.result;
+    const fotoSeleccionada = document.getElementById("fotoSeleccionada");
+    if (fotoSeleccionada) {
+      fotoSeleccionada.textContent = file.name ? `Foto lista: ${file.name}` : "Foto lista para subir";
+    }
+  };
+  reader.onerror = () => {
+    alert("No se pudo leer la imagen. Intenta otra vez.");
+  };
+  reader.readAsDataURL(file);
+  event.target.value = "";
 }
 
 function toggleNuevoCliente() {
@@ -131,8 +169,8 @@ function ocultarNuevoCliente() {
 }
 
 function renderClientes() {
-  let tabla = document.getElementById("tablaClientes");
-  if (!tabla) return;
+  let listaCont = document.getElementById("listaClientes");
+  if (!listaCont) return;
 
   let filtro = terminoBusqueda.trim().toLowerCase();
   let lista = clientes.filter(c => {
@@ -140,28 +178,27 @@ function renderClientes() {
     return c.nombre.toLowerCase().includes(filtro) || c.cedula.toLowerCase().includes(filtro);
   });
 
-  tabla.innerHTML = "";
+  listaCont.innerHTML = "";
 
   if (lista.length === 0) {
-    tabla.innerHTML = `
-      <tr>
-        <td colspan="4">No se encontraron clientes</td>
-      </tr>
-    `;
+    listaCont.innerHTML = `<div class="placeholder">No se encontraron clientes</div>`;
     return;
   }
 
   lista.forEach(c => {
-    let seleccionado = c.id === clienteSeleccionadoId ? "activo" : "";
-    tabla.innerHTML += `
-      <tr class="${seleccionado} clickable" onclick="seleccionarCliente('${c.id}')">
-        <td>${c.nombre}</td>
-        <td>${c.cedula}</td>
-        <td>${c.telefono || "-"}</td>
-        <td class="action-group">
+    let fotoCliente = c.foto || 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80';
+    listaCont.innerHTML += `
+      <article class="client-card" onclick="seleccionarCliente('${c.id}')">
+        <img class="client-card-avatar" src="${fotoCliente}" alt="Foto de ${c.nombre}" />
+        <div class="client-card-content">
+          <h3>${c.nombre}</h3>
+          <p><strong>Teléfono:</strong> ${c.telefono || "-"}</p>
+          <p><strong>Dirección:</strong> ${c.direccion || "-"}</p>
+        </div>
+        <div class="client-card-actions">
           <button class="small btn-danger" onclick="event.stopPropagation(); eliminarCliente('${c.id}')">Eliminar</button>
-        </td>
-      </tr>
+        </div>
+      </article>
     `;
   });
 }

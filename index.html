@@ -3,7 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#2563eb" />
   <title>Sistema de Cobro Compacto</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="logocobro.png" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -30,26 +33,16 @@
         <input type="text" id="cedula" placeholder="Cédula" />
         <input type="text" id="telefono" placeholder="Teléfono" />
         <input type="text" id="direccion" placeholder="Dirección" />
-        <input type="text" id="foto" placeholder="URL de foto de perfil (opcional)" />
+        <input id="fotoInput" type="file" accept="image/*" capture="environment" class="hidden" onchange="handleClienteFotoFile(event)" />
+        <button type="button" class="btn-secondary small" onclick="document.getElementById('fotoInput').click()">Seleccionar foto</button>
+        <div id="fotoSeleccionada" class="help-text" style="margin-top:0;">No hay foto seleccionada</div>
         <button onclick="guardarCliente()">Guardar cliente</button>
         <button type="button" class="btn-secondary" onclick="ocultarNuevoCliente()">Cancelar</button>
       </div>
 
       <div class="card">
         <h2>Clientes</h2>
-        <div class="table-container">
-          <table>
-            <thead>
-              <tr>
-                <th>Nombre</th>
-                <th>Cédula</th>
-                <th>Teléfono</th>
-                <th>Acción</th>
-              </tr>
-            </thead>
-            <tbody id="tablaClientes"></tbody>
-          </table>
-        </div>
+        <div id="listaClientes" class="client-list"></div>
       </div>
     </aside>
   </main>
