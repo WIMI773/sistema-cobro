@@ -1,6 +1,6 @@
 const CACHE_NAME = 'cobrodiario-cache-v1';
 const URLS_TO_CACHE = [
-  '.',
+  '/',
   'index.html',
   'login.html',
   'detalle.html',
@@ -8,7 +8,8 @@ const URLS_TO_CACHE = [
   'app.js',
   'detalle.js',
   'firebase.js',
-  'manifest.json'
+  'manifest.json',
+  'logocobro.png'
 ];
 
 self.addEventListener('install', event => {
@@ -31,15 +32,18 @@ self.addEventListener('fetch', event => {
   event.respondWith(
     caches.match(event.request).then(cachedResponse => {
       if (cachedResponse) return cachedResponse;
+
       return fetch(event.request).then(fetchResponse => {
-        return caches.open(CACHE_NAME).then(cache => {
-          if (event.request.method === 'GET' && event.request.url.startsWith(self.location.origin)) {
-            cache.put(event.request, fetchResponse.clone());
-          }
-          return fetchResponse;
-        });
+        if (event.request.method === 'GET' && event.request.url.startsWith(self.location.origin)) {
+          caches.open(CACHE_NAME).then(cache => cache.put(event.request, fetchResponse.clone()));
+        }
+        return fetchResponse;
       }).catch(() => {
-        return caches.match('index.html');
+        if (event.request.mode === 'navigate' || (event.request.headers.get('accept') || '').includes('text/html')) {
+          return caches.match(event.request)
+            .then(r => r || caches.match('/login.html') || caches.match('/login') || caches.match('login.html') || caches.match('index.html'));
+        }
+        return new Response('offline', { status: 503, statusText: 'Offline' });
       });
     })
   );
