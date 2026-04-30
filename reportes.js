@@ -108,17 +108,15 @@ function renderReporte() {
   const prestamosActivos = prestamos.filter(p => p.estado === 'Activo');
 
   // Totales de préstamos activos
-  let totalMora          = 0;
-  let saldoPendienteTotal = 0;
-  let totalPrestado      = 0;
+  // totalCapitalMasIntereses = suma de p.total (capital + intereses) por cada préstamo activo
+  let totalMora                 = 0;
+  let totalCapitalMasIntereses  = 0;
 
   prestamosActivos.forEach(p => {
-    totalPrestado += Number(p.monto || 0);
+    // p.total ya contiene capital + intereses completos
+    totalCapitalMasIntereses += Number(p.total || 0);
     if (Array.isArray(p.cuotas)) {
       totalMora += p.cuotas.filter(c => c.estado === 'mora').length;
-      saldoPendienteTotal += p.cuotas
-        .filter(c => c.estado !== 'pagada')
-        .reduce((s, c) => s + Number(c.valor || 0), 0);
     }
   });
 
@@ -166,11 +164,7 @@ function renderReporte() {
       </div>
       <div class="reporte-stat-card ambar">
         <div class="stat-label">Total prestado</div>
-        <div class="stat-value">${formatearMoneda(totalPrestado)}</div>
-      </div>
-      <div class="reporte-stat-card rojo">
-        <div class="stat-label">Saldo por cobrar</div>
-        <div class="stat-value">${formatearMoneda(saldoPendienteTotal)}</div>
+        <div class="stat-value">${formatearMoneda(totalCapitalMasIntereses)}</div>
       </div>
     </div>
 
@@ -283,7 +277,7 @@ function renderReporte() {
                   return `
                     <tr>
                       <td>${cliente ? cliente.nombre : '-'}</td>
-                      <td>${formatearMoneda(p.monto)}</td>
+                      <td>${formatearMoneda(p.total)}</td>
                       <td>${formatearMoneda(saldo)}</td>
                       <td>${mora > 0 ? `<span class="badge mora">${mora}</span>` : '0'}</td>
                       <td>${p.frecuencia || '-'}</td>

@@ -32,6 +32,34 @@ let pagoModalCuotaNumero = null;
 let detalleTab = "info";
 let userId = null;
 
+// ─── Formato peso colombiano ───────────────────────────────────────────────
+function formatCOP(valor) {
+  if (valor === null || valor === undefined || isNaN(valor)) return "$0";
+  return new Intl.NumberFormat("es-CO", {
+    style: "currency",
+    currency: "COP",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0
+  }).format(valor);
+}
+
+function getRawNumber(inputEl) {
+  const raw = (inputEl.dataset.rawValue || inputEl.value).replace(/\D/g, "");
+  return parseFloat(raw);
+}
+
+function aplicarFormatoInputCOP(inputId) {
+  const input = document.getElementById(inputId);
+  if (!input) return;
+  input.addEventListener("input", function () {
+    const raw = this.value.replace(/\D/g, "");
+    this.dataset.rawValue = raw;
+    const num = parseInt(raw, 10);
+    this.value = isNaN(num) ? "" : num.toLocaleString("es-CO");
+  });
+}
+// ──────────────────────────────────────────────────────────────────────────
+
 function mostrarNotificacion(mensaje, tipo = "info") {
   let toast = document.getElementById("toast");
   if (!toast) return;
@@ -117,12 +145,22 @@ function renderManualCuotasRows() {
       <div class="manual-cuota-row">
         <label>Cuota ${i}</label>
         <input type="date" class="manual-cuota-fecha" placeholder="Fecha" />
-        <input type="number" class="manual-cuota-valor" placeholder="Valor" min="1" />
+        <input type="text" class="manual-cuota-valor" placeholder="Valor" inputmode="numeric" />
       </div>
     `);
   }
 
   cont.innerHTML = rows.join("");
+
+  // Aplicar formato COP a cada input de valor manual
+  cont.querySelectorAll(".manual-cuota-valor").forEach(input => {
+    input.addEventListener("input", function () {
+      const raw = this.value.replace(/\D/g, "");
+      this.dataset.rawValue = raw;
+      const num = parseInt(raw, 10);
+      this.value = isNaN(num) ? "" : num.toLocaleString("es-CO");
+    });
+  });
 }
 
 async function cargarDatosUsuario() {
@@ -283,7 +321,7 @@ async function renderDetalleCliente() {
           <div class="loan-item-main">
             <div>
               <div class="loan-item-title">Préstamo #${p.id}</div>
-              <div class="loan-item-meta">Monto ${Math.round(p.monto)} · Total ${Math.round(p.total)} · Pagado ${pagado} · Saldo ${saldo}</div>
+              <div class="loan-item-meta">Monto ${formatCOP(p.monto)} · Total ${formatCOP(p.total)} · Pagado ${formatCOP(pagado)} · Saldo ${formatCOP(saldo)}</div>
             </div>
             <span class="badge ${mora > 0 ? 'mora' : ''}">${estado}</span>
           </div>
@@ -309,7 +347,7 @@ async function renderDetalleCliente() {
     ? pagosCliente.map(pg => `
       <tr>
         <td>${pg.cuotaNumero}</td>
-        <td>${pg.valor}</td>
+        <td>${formatCOP(pg.valor)}</td>
         <td>${pg.fecha}</td>
       </tr>
     `).join("")
@@ -330,12 +368,14 @@ async function renderDetalleCliente() {
     </div>
   `;
 
-  let selectedLoanSummaryHTML = selectedLoan ? `<div class="stats-card"><span class="badge">Monto préstamo</span><strong>${selectedLoan.monto}</strong></div>` : "";
+  let selectedLoanSummaryHTML = selectedLoan
+    ? `<div class="stats-card"><span class="badge">Monto préstamo</span><strong>${formatCOP(selectedLoan.monto)}</strong></div>`
+    : "";
 
   let selectedLoanPayCardHTML = selectedLoan ? `
     <div class="loan-card pay-card">
       <h3>Pagar próxima cuota</h3>
-      <p class="help-text">Préstamo #${selectedLoan.id} — saldo ${saldoPendiente(selectedLoan)}.</p>
+      <p class="help-text">Préstamo #${selectedLoan.id} — saldo ${formatCOP(saldoPendiente(selectedLoan))}.</p>
       <button onclick="pagarCuota('${selectedLoan.id}')">Pagar cuota manual</button>
     </div>
   ` : `
@@ -365,8 +405,8 @@ async function renderDetalleCliente() {
     <div class="tab-pane ${detalleTab === "info" ? 'active' : ''}" id="tab-info">
       <div class="stats-grid">
         <div class="stats-card"><span class="badge">Préstamos</span><strong>${prestamosCliente.length}</strong></div>
-        <div class="stats-card"><span class="badge">Total deuda</span><strong>${totalDeuda}</strong></div>
-        <div class="stats-card"><span class="badge">Pagado</span><strong>${totalPagadoCliente}</strong></div>
+        <div class="stats-card"><span class="badge">Total deuda</span><strong>${formatCOP(totalDeuda)}</strong></div>
+        <div class="stats-card"><span class="badge">Pagado</span><strong>${formatCOP(totalPagadoCliente)}</strong></div>
         <div class="stats-card"><span class="badge">Cuotas en mora</span><strong>${totalMora}</strong></div>
         ${selectedLoanSummaryHTML}
       </div>
@@ -403,11 +443,11 @@ async function renderDetalleCliente() {
       <div class="loan-card">
         <h3>Nuevo préstamo</h3>
         <div class="field-grid">
-          <input type="number" id="monto" placeholder="Monto prestado" />
+          <input type="text" id="monto" placeholder="Monto prestado" inputmode="numeric" />
           <input type="number" id="interes" placeholder="Interés (%)" />
         </div>
         <div class="field-grid">
-          <input type="number" id="valorCuota" placeholder="Valor cuota (opcional)" />
+          <input type="text" id="valorCuota" placeholder="Valor cuota (opcional)" inputmode="numeric" />
           <input type="number" id="cuotas" placeholder="Número de cuotas" />
         </div>
         <div class="field-grid">
@@ -430,6 +470,10 @@ async function renderDetalleCliente() {
       </div>
     </div>
   `;
+
+  // Aplicar formato COP a los inputs de dinero después de renderizar
+  aplicarFormatoInputCOP("monto");
+  aplicarFormatoInputCOP("valorCuota");
 }
 
 function seleccionarPrestamo(id) {
@@ -440,9 +484,12 @@ function seleccionarPrestamo(id) {
 async function crearPrestamoCliente() {
   if (!clienteId || !userId) return;
 
-  let monto = parseFloat(document.getElementById("monto").value);
+  const montoEl = document.getElementById("monto");
+  const valorCuotaEl = document.getElementById("valorCuota");
+
+  let monto = getRawNumber(montoEl);
   let interes = parseFloat(document.getElementById("interes").value);
-  let valorCuotaInput = parseFloat(document.getElementById("valorCuota").value);
+  let valorCuotaInput = getRawNumber(valorCuotaEl);
   let numCuotas = parseInt(document.getElementById("cuotas").value, 10);
   let frecuencia = document.getElementById("frecuencia").value;
 
@@ -468,7 +515,8 @@ async function crearPrestamoCliente() {
     for (let index = 0; index < rows.length; index++) {
       let row = rows[index];
       let fecha = row.querySelector(".manual-cuota-fecha")?.value?.trim();
-      let valor = parseFloat(row.querySelector(".manual-cuota-valor")?.value);
+      const valorEl = row.querySelector(".manual-cuota-valor");
+      let valor = parseFloat((valorEl?.dataset?.rawValue || valorEl?.value || "").replace(/\D/g, ""));
 
       if (!fecha || isNaN(new Date(fecha).getTime())) {
         mostrarNotificacion(`Fecha inválida en la cuota ${index + 1}. Usa YYYY-MM-DD.`, "error");
@@ -528,6 +576,7 @@ async function crearPrestamoCliente() {
   document.getElementById("monto").value = "";
   document.getElementById("interes").value = "";
   document.getElementById("cuotas").value = "";
+  document.getElementById("valorCuota").value = "";
 
   prestamoSeleccionadoId = prestamoId;
   await cargarPrestamos();
@@ -556,7 +605,7 @@ async function pagarCuota(prestamoId) {
   pagoModalPrestamoId = prestamo.id;
   pagoModalCuotaNumero = cuota.numero;
   document.getElementById("modalPagoTitle").textContent = `Pagar cuota #${cuota.numero}`;
-  document.getElementById("modalPagoTexto").textContent = `Monto: ${cuota.valor}. Vencimiento: ${cuota.fecha}`;
+  document.getElementById("modalPagoTexto").textContent = `Monto: ${formatCOP(cuota.valor)}. Vencimiento: ${cuota.fecha}`;
   document.getElementById("modalPagoFecha").value = hoy();
   abrirModalPago();
 }
@@ -633,6 +682,7 @@ window.crearPrestamoCliente = crearPrestamoCliente;
 window.pagarCuota = pagarCuota;
 window.eliminarPrestamo = eliminarPrestamo;
 window.toggleManual = toggleManual;
+window.renderManualCuotasRows = renderManualCuotasRows;
 window.confirmarPagoCuota = confirmarPagoCuota;
 window.abrirModalPago = abrirModalPago;
 window.cerrarModalPago = cerrarModalPago;
