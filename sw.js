@@ -34,14 +34,24 @@ self.addEventListener('fetch', event => {
       if (cachedResponse) return cachedResponse;
 
       return fetch(event.request).then(fetchResponse => {
-        if (event.request.method === 'GET' && event.request.url.startsWith(self.location.origin)) {
-          caches.open(CACHE_NAME).then(cache => cache.put(event.request, fetchResponse.clone()));
+        // Verificar que la respuesta sea válida antes de clonar
+        if (
+          fetchResponse &&
+          fetchResponse.status === 200 &&
+          event.request.method === 'GET' &&
+          event.request.url.startsWith(self.location.origin)
+        ) {
+          // Clonar ANTES de cualquier uso
+          const responseToCache = fetchResponse.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(event.request, responseToCache));
         }
         return fetchResponse;
       }).catch(() => {
-        if (event.request.mode === 'navigate' || (event.request.headers.get('accept') || '').includes('text/html')) {
-          return caches.match(event.request)
-            .then(r => r || caches.match('/login.html') || caches.match('/login') || caches.match('login.html') || caches.match('index.html'));
+        if (
+          event.request.mode === 'navigate' ||
+          (event.request.headers.get('accept') || '').includes('text/html')
+        ) {
+          return caches.match('index.html');
         }
         return new Response('offline', { status: 503, statusText: 'Offline' });
       });

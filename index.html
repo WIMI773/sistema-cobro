@@ -2,41 +2,123 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
   <meta name="theme-color" content="#2563eb" />
   <title>Sistema de Cobro Compacto</title>
   <link rel="manifest" href="manifest.json" />
   <link rel="icon" href="logocobro.png" />
   <link rel="stylesheet" href="styles.css" />
+  <style>
+    /* ── FIX SCROLL HORIZONTAL EN ANDROID/POCO ── */
+    html, body {
+      max-width: 100%;
+      overflow-x: hidden;
+    }
+
+    table {
+      min-width: 0 !important;
+      width: 100%;
+      table-layout: fixed;
+    }
+
+    th, td {
+      word-break: break-word;
+      white-space: normal;
+    }
+
+    /* ── Vista previa foto en formulario ── */
+    #fotoPreview {
+      width: 80px;
+      height: 80px;
+      object-fit: cover;
+      border-radius: 12px;
+      border: 2px solid #e5e7eb;
+      margin-bottom: 8px;
+      display: block;
+    }
+    #fotoPreview.hidden {
+      display: none !important;
+    }
+
+    /* ── Tarjeta cliente con pago hoy ── */
+    .client-card--pagado {
+      background: #bbf7d0 !important;
+      border-color: #22c55e !important;
+    }
+
+    /* ── Badge "Pagó hoy" ── */
+    .badge-pagado {
+      background: #16a34a;
+      color: #ffffff;
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 3px 9px;
+      border-radius: 999px;
+      vertical-align: middle;
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+    }
+  </style>
 </head>
 <body>
   <header>
     <div class="header-content">
       <div>
         <h1>Sistema de Cobro</h1>
-      </div>      <div class="header-actions">
+      </div>
+      <div class="header-actions">
         <span id="usuarioEmail"></span>
+        <a href="reportes.html" style="text-decoration:none;">
+          <button class="btn-secondary small">📊 Reportes</button>
+        </a>
         <button id="logoutButton" class="btn-secondary small">Cerrar sesión</button>
-      </div>    </div>
+      </div>
+    </div>
   </header>
 
   <main class="dashboard">
     <aside class="panel panel-left">
+
       <div class="card card-small">
         <h2>Buscar cliente</h2>
-        <input type="text" id="buscarCliente" placeholder="Buscar por nombre o cédula" oninput="buscarClientes()" />
+        <input
+          type="text"
+          id="buscarCliente"
+          placeholder="Buscar por nombre o cédula"
+          oninput="buscarClientes()"
+        />
       </div>
 
       <div id="nuevoClienteCard" class="card card-small hidden">
         <h2>Nuevo cliente</h2>
-        <input type="text" id="nombre" placeholder="Nombre" />
-        <input type="text" id="cedula" placeholder="Cédula" />
-        <input type="text" id="telefono" placeholder="Teléfono" />
+        <input type="text" id="nombre"    placeholder="Nombre" />
+        <input type="text" id="cedula"    placeholder="Cédula" />
+        <input type="text" id="telefono"  placeholder="Teléfono" />
         <input type="text" id="direccion" placeholder="Dirección" />
-        <input id="fotoInput" type="file" accept="image/*" capture="environment" class="hidden" onchange="handleClienteFotoFile(event)" />
-        <button type="button" class="btn-secondary small" onclick="document.getElementById('fotoInput').click()">Seleccionar foto</button>
-        <div id="fotoSeleccionada" class="help-text" style="margin-top:0;">No hay foto seleccionada</div>
-        <button onclick="guardarCliente()">Guardar cliente</button>
+
+        <img id="fotoPreview" class="hidden" alt="Vista previa foto cliente" />
+
+        <input
+          id="fotoInput"
+          type="file"
+          accept="image/*"
+          capture="environment"
+          class="hidden"
+          onchange="handleClienteFotoFile(event)"
+        />
+        <button
+          type="button"
+          class="btn-secondary small"
+          onclick="document.getElementById('fotoInput').click()"
+        >
+          📷 Seleccionar foto
+        </button>
+        <div id="fotoSeleccionada" class="help-text" style="margin-top:4px;">
+          No hay foto seleccionada
+        </div>
+
+        <button onclick="guardarCliente()" style="margin-top:10px;">Guardar cliente</button>
         <button type="button" class="btn-secondary" onclick="ocultarNuevoCliente()">Cancelar</button>
       </div>
 
@@ -44,6 +126,7 @@
         <h2>Clientes</h2>
         <div id="listaClientes" class="client-list"></div>
       </div>
+
     </aside>
   </main>
 

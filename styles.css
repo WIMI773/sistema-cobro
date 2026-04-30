@@ -1,6 +1,13 @@
 /* ─── RESET ─── */
-html { scroll-behavior: smooth; }
-*, *::before, *::after { box-sizing: border-box; }
+html {
+  scroll-behavior: smooth;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
 
 body {
   font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -58,7 +65,7 @@ header p {
   justify-content: center;
   padding: 24px;
   background: radial-gradient(circle at top left, rgba(59, 130, 246, 0.25), transparent 25%),
-              linear-gradient(180deg, #0f172a 0%, #0a123d 100%);
+    linear-gradient(180deg, #0f172a 0%, #0a123d 100%);
 }
 
 .login-card {
@@ -85,7 +92,7 @@ header p {
   place-items: center;
   border-radius: 18px;
   background: linear-gradient(135deg, #2563eb, #7c3aed);
-  color: white;
+  color: #ffffff;
   font-size: 1.25rem;
   font-weight: 800;
   overflow: hidden;
@@ -134,7 +141,7 @@ header p {
 }
 
 .form-group label {
-  color: #d1d5db;
+  color: #cbd5e1; /* ← era #ffffff, ahora gris claro para no confundir con texto escrito */
   font-size: 0.92rem;
   font-weight: 700;
 }
@@ -151,14 +158,14 @@ header p {
   width: auto;
   padding: 8px 10px;
   background: transparent;
-  color: #a5b4fc;
+  color: #6b7280; /* ← era #000000 */
   border: none;
   font-weight: 700;
   cursor: pointer;
 }
 
 .input-group .password-toggle:hover {
-  color: #f8fafc;
+  color: #374151; /* ← era #000000 */
 }
 
 input {
@@ -167,20 +174,26 @@ input {
   border-radius: 16px;
   border: 1px solid rgba(148, 163, 184, 0.18);
   background: rgba(255, 255, 255, 0.06);
-  color: #f8fafc;
+  color: #f8fafc; /* texto que escribe el usuario en inputs oscuros */
 }
 
 #password {
   background: rgba(255, 255, 255, 0.98);
-  color: #111827;
+  color: #111827; /* texto escrito en campo de contraseña (fondo claro) */
 }
 
 #password::placeholder {
   color: rgba(17, 24, 39, 0.45);
 }
 
-input::placeholder {
-  color: rgba(203, 213, 225, 0.7);
+input::placeholder,
+select::placeholder,
+textarea::placeholder {
+  color: #6b7280;
+}
+
+select {
+  color: #1f2937;
 }
 
 input:focus {
@@ -255,9 +268,13 @@ button:disabled {
   overflow: hidden;
 }
 
-.card-small { padding: 14px; }
+.card-small {
+  padding: 14px;
+}
 
-.card h2, .card h3, .card h4 {
+.card h2,
+.card h3,
+.card h4 {
   margin: 0 0 14px;
   font-weight: 700;
   color: #111827;
@@ -289,8 +306,13 @@ button:disabled {
   border-color: #2563eb;
 }
 
-.tab-pane { display: none; }
-.tab-pane.active { display: block; }
+.tab-pane {
+  display: none;
+}
+
+.tab-pane.active {
+  display: block;
+}
 
 /* ─── INPUTS ─── */
 input,
@@ -306,6 +328,7 @@ textarea {
   outline: none;
   transition: border-color 0.2s ease;
   -webkit-appearance: none;
+  color: #1f2937; /* ← texto que escribe el usuario */
 }
 
 input:focus {
@@ -319,7 +342,7 @@ button {
   padding: 13px 16px;
   background: #2563eb;
   border: none;
-  color: white;
+  color: #ffffff;
   cursor: pointer;
   border-radius: 10px;
   font-weight: 700;
@@ -329,8 +352,13 @@ button {
   touch-action: manipulation;
 }
 
-button:hover  { background: #1d4ed8; }
-button:active { transform: scale(0.98); }
+button:hover {
+  background: #1d4ed8;
+}
+
+button:active {
+  transform: scale(0.98);
+}
 
 button.small {
   width: auto;
@@ -342,10 +370,21 @@ button.small {
   min-width: 56px;
 }
 
-button.btn-danger        { background: #dc2626; }
-button.btn-danger:hover  { background: #b91c1c; }
-button.btn-secondary     { background: #4b5563; }
-button.btn-secondary:hover { background: #374151; }
+button.btn-danger {
+  background: #dc2626;
+}
+
+button.btn-danger:hover {
+  background: #b91c1c;
+}
+
+button.btn-secondary {
+  background: #4b5563;
+}
+
+button.btn-secondary:hover {
+  background: #374151;
+}
 
 .loan-card,
 .loan-detail,
@@ -455,7 +494,7 @@ button.btn-secondary:hover { background: #374151; }
 }
 
 .loan-item-meta {
-  color: #4b5563;
+  color: #475569; /* ← era #000000 */
   font-size: 0.92rem;
   line-height: 1.5;
 }
@@ -536,6 +575,7 @@ button.btn-secondary:hover { background: #374151; }
   .manual-cuota-row {
     grid-template-columns: 1fr;
   }
+
   .field-grid {
     grid-template-columns: 1fr;
   }
@@ -605,10 +645,22 @@ button.btn-secondary:hover { background: #374151; }
   transform: translateY(0);
 }
 
-.toast.info { background: #2563eb; }
-.toast.success { background: #16a34a; }
-.toast.warning { background: #f59e0b; color: #1f2937; }
-.toast.error { background: #dc2626; }
+.toast.info {
+  background: #2563eb;
+}
+
+.toast.success {
+  background: #16a34a;
+}
+
+.toast.warning {
+  background: #f59e0b;
+  color: #1f2937;
+}
+
+.toast.error {
+  background: #dc2626;
+}
 
 .fab {
   position: fixed;
@@ -631,9 +683,14 @@ button.btn-secondary:hover { background: #374151; }
   z-index: 20;
 }
 
-.fab:hover { transform: translateY(-2px); box-shadow: 0 22px 32px rgba(37, 99, 235, 0.28); }
+.fab:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 22px 32px rgba(37, 99, 235, 0.28);
+}
 
-.hidden { display: none !important; }
+.hidden {
+  display: none !important;
+}
 
 /* ─── TABLA ─── */
 .table-container {
@@ -649,7 +706,8 @@ table {
   min-width: 480px;
 }
 
-th, td {
+th,
+td {
   padding: 11px 12px;
   border-bottom: 1px solid #e5e7eb;
   text-align: left;
@@ -667,10 +725,21 @@ th {
   font-size: 0.82rem;
 }
 
-tbody tr:hover  { background: #f9fafb; }
-tbody tr.activo { background: #eff6ff; }
-tbody tr.clickable { cursor: pointer; }
-tbody tr.clickable:hover { background: #eef2ff; }
+tbody tr:hover {
+  background: #f9fafb;
+}
+
+tbody tr.activo {
+  background: #eff6ff;
+}
+
+tbody tr.clickable {
+  cursor: pointer;
+}
+
+tbody tr.clickable:hover {
+  background: #eef2ff;
+}
 
 td .action-group {
   display: flex;
@@ -734,7 +803,7 @@ td .action-group {
   padding: 10px 14px;
   border-radius: 12px;
   background: #2563eb;
-  color: white;
+  color: #ffffff; /* ← era rgb(0,0,0) */
   text-decoration: none;
   font-weight: 700;
   transition: background-color 0.2s ease, transform 0.1s ease;
@@ -784,7 +853,7 @@ td .action-group {
 .placeholder {
   padding: 48px 20px;
   text-align: center;
-  color: #6b7280;
+  color: #6b7280; /* ← era #000000 */
 }
 
 /* ─── RESPONSIVE: TABLET ─── */
@@ -802,15 +871,22 @@ td .action-group {
 
 /* ─── RESPONSIVE: MÓVIL ─── */
 @media (max-width: 600px) {
-  header { padding: 14px 16px; }
+  header {
+    padding: 14px 16px;
+  }
 
   .header-content {
     flex-direction: column;
     gap: 8px;
   }
 
-  header h1 { font-size: 1.25rem; }
-  header p  { font-size: 0.82rem; }
+  header h1 {
+    font-size: 1.25rem;
+  }
+
+  header p {
+    font-size: 0.82rem;
+  }
 
   .dashboard {
     padding: 0 12px;
@@ -818,20 +894,41 @@ td .action-group {
     gap: 12px;
   }
 
-  .card         { padding: 14px; border-radius: 14px; }
-  .card-small   { padding: 12px; }
+  .card {
+    padding: 14px;
+    border-radius: 14px;
+  }
 
-  .card h2 { font-size: 1rem; }
-  .card h3 { font-size: 0.92rem; }
-  .card h4 { font-size: 0.85rem; }
+  .card-small {
+    padding: 12px;
+  }
+
+  .card h2 {
+    font-size: 1rem;
+  }
+
+  .card h3 {
+    font-size: 0.92rem;
+  }
+
+  .card h4 {
+    font-size: 0.85rem;
+  }
 
   .tab-button {
     padding: 10px 8px;
     font-size: 0.82rem;
   }
 
-  input  { padding: 11px 12px; font-size: 0.9rem; }
-  button { padding: 12px 14px; font-size: 0.9rem; }
+  input {
+    padding: 11px 12px;
+    font-size: 0.9rem;
+  }
+
+  button {
+    padding: 12px 14px;
+    font-size: 0.9rem;
+  }
 
   button.small {
     padding: 8px 12px;
@@ -839,12 +936,15 @@ td .action-group {
     min-width: 48px;
   }
 
-  th, td {
+  th,
+  td {
     padding: 9px 10px;
     font-size: 0.8rem;
   }
 
-  th { font-size: 0.75rem; }
+  th {
+    font-size: 0.75rem;
+  }
 
   td .action-group {
     gap: 5px;
@@ -852,9 +952,14 @@ td .action-group {
     align-items: flex-start;
   }
 
-  .badge { font-size: 0.7rem; padding: 3px 8px; }
+  .badge {
+    font-size: 0.7rem;
+    padding: 3px 8px;
+  }
 
-  .profile-card { gap: 12px; }
+  .profile-card {
+    gap: 12px;
+  }
 
   .profile-card img {
     width: 58px;
@@ -862,12 +967,21 @@ td .action-group {
     border-radius: 12px;
   }
 
-  .profile-info p { font-size: 0.83rem; }
+  .profile-info p {
+    font-size: 0.83rem;
+  }
 
-  .stats-grid { gap: 8px; }
+  .stats-grid {
+    gap: 8px;
+  }
 
-  .stats-card        { padding: 11px; }
-  .stats-card strong { font-size: 1.05rem; }
+  .stats-card {
+    padding: 11px;
+  }
+
+  .stats-card strong {
+    font-size: 1.05rem;
+  }
 
   .loan-item-grid {
     grid-template-columns: 1fr;
@@ -877,7 +991,10 @@ td .action-group {
     justify-content: flex-start;
   }
 
-  .placeholder { padding: 36px 16px; font-size: 0.9rem; }
+  .placeholder {
+    padding: 36px 16px;
+    font-size: 0.9rem;
+  }
 
   .panel-left,
   .panel-right {
@@ -886,5 +1003,169 @@ td .action-group {
 
   .table-container {
     overflow-x: auto;
+  }/* =====================================================
+   PEGA ESTO AL FINAL DE TU styles.css
+   Arregla el desbordamiento en móviles de cualquier tamaño
+   ===================================================== */
+
+/* Evita scroll horizontal global */
+html, body {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+/* Dashboard no se sale de pantalla */
+.dashboard {
+  width: 100%;
+  max-width: 100%;
+  padding-left: 12px;
+  padding-right: 12px;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+/* Cards sin desbordamiento */
+.card,
+.client-card,
+.loan-card,
+.loan-item {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: hidden; /* corta lo que se salga */
+}
+
+/* Client-card: layout flexible que no se rompe */
+.client-card {
+  display: flex;
+  align-items: flex-start;      /* alineación top para cuando hay mucho texto */
+  flex-wrap: wrap;              /* si no cabe, baja a la siguiente línea */
+  gap: 10px;
+  padding: 14px;
+}
+
+/* Avatar no se encoge ni se desborda */
+.client-card-avatar {
+  width: 64px;
+  height: 64px;
+  flex-shrink: 0;
+  object-fit: cover;
+  border-radius: 14px;
+}
+
+/* Contenido del cliente ocupa el espacio disponible */
+.client-card-content {
+  flex: 1 1 140px;   /* crece, pero si no cabe baja */
+  min-width: 0;      /* CRÍTICO: sin esto flex ignora el ancho del padre */
+  word-break: break-word;
+}
+
+/* Nombre largo no desborda */
+.client-card h3 {
+  font-size: 0.95rem;
+  margin: 0 0 6px;
+  white-space: normal;  /* permite salto de línea */
+  word-break: break-word;
+}
+
+.client-card p {
+  font-size: 0.85rem;
+  margin: 3px 0;
+  word-break: break-word;
+}
+
+/* Acciones: botones siempre visibles */
+.client-card-actions {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-end;
+}
+
+.client-card-actions button {
+  width: auto;
+  white-space: nowrap;
+  padding: 8px 14px;
+  font-size: 0.8rem;
+}
+
+/* Badge "Pago hoy" no desborda */
+.badge {
+  white-space: normal;    /* permite que el texto baje de línea si es largo */
+  word-break: break-word;
+  max-width: 100%;
+}
+
+/* Lista de clientes sin desbordamiento */
+.client-list {
+  width: 100%;
+  overflow: hidden;
+}
+
+/* Panel izquierdo/derecho sin desbordamiento */
+.panel,
+.panel-left,
+.panel-right {
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+/* Inputs: font-size 16px evita zoom en iOS */
+input, select, textarea {
+  font-size: 16px !important;
+  max-width: 100%;
+}
+
+/* Header: email largo no rompe layout */
+#usuarioEmail {
+  word-break: break-all;
+  font-size: 0.78rem;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 480px) {
+  /* Header en columna en móviles pequeños */
+  .header-content {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
   }
+
+  .header-actions {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  /* Botón Reportes no se sale */
+  .header-actions a,
+  .header-actions button {
+    flex-shrink: 0;
+  }
+
+  /* Client card: avatar arriba, contenido abajo si es muy angosto */
+  .client-card {
+    padding: 12px;
+    gap: 8px;
+  }
+
+  .client-card-avatar {
+    width: 54px;
+    height: 54px;
+  }
+
+  /* Acciones al final de la card, full width */
+  .client-card-actions {
+    width: 100%;
+    flex-direction: row;
+    justify-content: flex-end;
+  }
+}
+
+
+
 }

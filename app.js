@@ -3,7 +3,6 @@ import {
   collection,
   query,
   where,
-  orderBy,
   getDocs,
   setDoc,
   doc,
@@ -52,42 +51,75 @@ onAuthChange(async user => {
   await cargarDatosUsuario();
 });
 
+// Carga todo en paralelo y LUEGO renderiza una sola vez
 async function cargarDatosUsuario() {
   await Promise.all([cargarClientes(), cargarPrestamos(), cargarPagos()]);
+  renderClientes(); // unico punto donde se llama render
 }
 
 async function cargarClientes() {
   if (!userId) return;
-
   const consulta = query(
     collection(db, "clientes"),
     where("userId", "==", userId)
   );
   const snapshot = await getDocs(consulta);
   clientes = snapshot.docs
-    .map(doc => ({ id: doc.id, ...doc.data() }))
+    .map(d => ({ id: d.id, ...d.data() }))
     .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' }));
-  renderClientes();
 }
 
 async function cargarPrestamos() {
   if (!userId) return;
-
   const consulta = query(collection(db, "prestamos"), where("userId", "==", userId));
   const snapshot = await getDocs(consulta);
-  prestamos = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  prestamos = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
 async function cargarPagos() {
   if (!userId) return;
-
   const consulta = query(collection(db, "pagos"), where("userId", "==", userId));
   const snapshot = await getDocs(consulta);
-  pagos = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  pagos = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
+// Fecha de hoy en formato YYYY-MM-DD usando hora LOCAL (no UTC)
 function hoy() {
-  return new Date().toISOString().split("T")[0];
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+// Normaliza fecha que puede ser string "YYYY-MM-DD" o Timestamp de Firestore
+function normalizarFecha(fecha) {
+  if (!fecha) return "";
+  if (typeof fecha === 'object' && typeof fecha.toDate === 'function') {
+    const fd = fecha.toDate();
+    const yyyy = fd.getFullYear();
+    const mm = String(fd.getMonth() + 1).padStart(2, '0');
+    const dd = String(fd.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  }
+  // Puede llegar como "2026-04-28T00:00:00Z", recortar al segmento de fecha
+  return String(fecha).slice(0, 10);
+}
+
+// Verifica si el cliente tiene al menos un pago registrado hoy
+function clientePagoHoy(clienteId) {
+  const fechaHoy = hoy();
+  console.log('=== clientePagoHoy ===');
+  console.log('Buscando clienteId:', clienteId);
+  console.log('Fecha hoy:', fechaHoy);
+  console.log('Total pagos en memoria:', pagos.length);
+  
+  pagos.forEach(p => {
+    const fechaNorm = normalizarFecha(p.fecha);
+    console.log(`  pago clienteId:${p.clienteId} fecha raw:${JSON.stringify(p.fecha)} normalizada:${fechaNorm} coincide:${p.clienteId === clienteId && fechaNorm === fechaHoy}`);
+  });
+
+  return pagos.some(p => p.clienteId === clienteId && normalizarFecha(p.fecha) === fechaHoy);
 }
 
 async function guardarCliente() {
@@ -95,38 +127,34 @@ async function guardarCliente() {
   let cedula = document.getElementById("cedula").value.trim();
   let telefono = document.getElementById("telefono").value.trim();
   let direccion = document.getElementById("direccion").value.trim();
-  let foto = clienteFotoDataUrl;
+  let foto = clienteFotoDataUrl || "";
 
   if (!nombre || !cedula) {
-    alert("Nombre y cédula son obligatorios");
+    alert("Nombre y cedula son obligatorios");
     return;
   }
 
   const id = Date.now().toString();
-  const cliente = {
-    nombre,
-    cedula,
-    telefono,
-    direccion,
-    foto,
-    userId
-  };
+  const cliente = { nombre, cedula, telefono, direccion, foto, userId };
 
   await setDoc(doc(db, "clientes", id), cliente);
-  clientes.push({ id, ...cliente });
 
   document.getElementById("nombre").value = "";
   document.getElementById("cedula").value = "";
   document.getElementById("telefono").value = "";
   document.getElementById("direccion").value = "";
+
   clienteFotoDataUrl = "";
-  const fotoSeleccionada = document.getElementById("fotoSeleccionada");
-  if (fotoSeleccionada) {
-    fotoSeleccionada.textContent = "No hay foto seleccionada";
+  const preview = document.getElementById("fotoPreview");
+  if (preview) {
+    preview.src = "";
+    preview.classList.add("hidden");
   }
+  const fotoSeleccionada = document.getElementById("fotoSeleccionada");
+  if (fotoSeleccionada) fotoSeleccionada.textContent = "No hay foto seleccionada";
 
   clienteSeleccionadoId = id;
-  await cargarClientes();
+  await cargarDatosUsuario();
   ocultarNuevoCliente();
 }
 
@@ -139,68 +167,86 @@ function handleClienteFotoFile(event) {
   const file = event.target.files?.[0];
   if (!file) return;
   if (!file.type.startsWith("image/")) {
-    alert("Selecciona una imagen válida.");
+    alert("Selecciona una imagen valida.");
     return;
   }
 
   const reader = new FileReader();
-  reader.onload = () => {
-    clienteFotoDataUrl = reader.result;
-    const fotoSeleccionada = document.getElementById("fotoSeleccionada");
-    if (fotoSeleccionada) {
-      fotoSeleccionada.textContent = file.name ? `Foto lista: ${file.name}` : "Foto lista para subir";
-    }
+  reader.onload = (e) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      const MAX = 400;
+      let w = img.width;
+      let h = img.height;
+      if (w > h && w > MAX) { h = Math.round(h * MAX / w); w = MAX; }
+      else if (h > MAX) { w = Math.round(w * MAX / h); h = MAX; }
+      canvas.width = w;
+      canvas.height = h;
+      canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+      clienteFotoDataUrl = canvas.toDataURL("image/jpeg", 0.75);
+
+      const preview = document.getElementById("fotoPreview");
+      if (preview) {
+        preview.src = clienteFotoDataUrl;
+        preview.classList.remove("hidden");
+      }
+      const fotoSeleccionada = document.getElementById("fotoSeleccionada");
+      if (fotoSeleccionada) {
+        fotoSeleccionada.textContent = file.name ? `Foto lista: ${file.name}` : "Foto lista para subir";
+      }
+    };
+    img.onerror = () => alert("No se pudo procesar la imagen.");
+    img.src = e.target.result;
   };
-  reader.onerror = () => {
-    alert("No se pudo leer la imagen. Intenta otra vez.");
-  };
+  reader.onerror = () => alert("No se pudo leer la imagen. Intenta otra vez.");
   reader.readAsDataURL(file);
   event.target.value = "";
 }
 
 function toggleNuevoCliente() {
-  let card = document.getElementById("nuevoClienteCard");
-  card.classList.toggle("hidden");
+  document.getElementById("nuevoClienteCard").classList.toggle("hidden");
 }
 
 function ocultarNuevoCliente() {
-  let card = document.getElementById("nuevoClienteCard");
-  card.classList.add("hidden");
+  document.getElementById("nuevoClienteCard").classList.add("hidden");
 }
 
 function renderClientes() {
-  let listaCont = document.getElementById("listaClientes");
+  const listaCont = document.getElementById("listaClientes");
   if (!listaCont) return;
 
-  let filtro = terminoBusqueda.trim().toLowerCase();
-  let lista = clientes.filter(c => {
+  const filtro = terminoBusqueda.trim().toLowerCase();
+  const lista = clientes.filter(c => {
     if (!filtro) return true;
     return c.nombre.toLowerCase().includes(filtro) || c.cedula.toLowerCase().includes(filtro);
   });
-
-  listaCont.innerHTML = "";
 
   if (lista.length === 0) {
     listaCont.innerHTML = `<div class="placeholder">No se encontraron clientes</div>`;
     return;
   }
 
-  lista.forEach(c => {
-    let fotoCliente = c.foto || 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80';
-    listaCont.innerHTML += `
-      <article class="client-card" onclick="seleccionarCliente('${c.id}')">
+  listaCont.innerHTML = lista.map(c => {
+    const pagoHoy = clientePagoHoy(c.id);
+    const fotoCliente = c.foto || 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80';
+    const claseExtra = pagoHoy ? ' client-card--pagado' : '';
+    const badge = pagoHoy ? `<span class="badge-pagado">&#10003; Pago hoy</span>` : '';
+
+    return `
+      <article class="client-card${claseExtra}" onclick="seleccionarCliente('${c.id}')">
         <img class="client-card-avatar" src="${fotoCliente}" alt="Foto de ${c.nombre}" />
         <div class="client-card-content">
-          <h3>${c.nombre}</h3>
-          <p><strong>Teléfono:</strong> ${c.telefono || "-"}</p>
-          <p><strong>Dirección:</strong> ${c.direccion || "-"}</p>
+          <h3>${c.nombre} ${badge}</h3>
+          <p><strong>Telefono:</strong> ${c.telefono || "-"}</p>
+          <p><strong>Direccion:</strong> ${c.direccion || "-"}</p>
         </div>
         <div class="client-card-actions">
           <button class="small btn-danger" onclick="event.stopPropagation(); eliminarCliente('${c.id}')">Eliminar</button>
         </div>
       </article>
     `;
-  });
+  }).join("");
 }
 
 async function eliminarCliente(id) {
@@ -220,7 +266,6 @@ async function eliminarCliente(id) {
 
 function seleccionarCliente(id) {
   clienteSeleccionadoId = id;
-  renderClientes();
   window.location.href = `detalle.html?clienteId=${id}`;
 }
 
@@ -230,3 +275,21 @@ window.ocultarNuevoCliente = ocultarNuevoCliente;
 window.guardarCliente = guardarCliente;
 window.seleccionarCliente = seleccionarCliente;
 window.eliminarCliente = eliminarCliente;
+window.handleClienteFotoFile = handleClienteFotoFile;
+
+// Cuando el usuario vuelve con el boton Atras, el navegador puede restaurar
+// la pagina desde bfcache sin re-ejecutar el JS. Esto fuerza recargar los
+// datos frescos de Firestore cada vez que la pagina vuelve a ser visible.
+window.addEventListener('pageshow', event => {
+  if (event.persisted) {
+    // La pagina vino del bfcache: recargar datos y re-renderizar
+    if (userId) cargarDatosUsuario();
+  }
+});
+
+// Alternativa para navegadores que no disparan pageshow correctamente
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && userId) {
+    cargarDatosUsuario();
+  }
+});

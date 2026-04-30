@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0a023a" />
+  <title>Reportes – Sistema de Cobro</title>
+  <link rel="icon" href="logocobro.png" />
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    /* ── LAYOUT REPORTE ── */
+    .reporte-wrapper {
+      max-width: 860px;
+      margin: 16px auto 40px;
+      padding: 0 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* ── NAVEGACIÓN PERÍODO ── */
+    .reporte-nav {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+    }
+
+    .reporte-nav button {
+      width: 100%;
+      padding: 10px 6px;
+      font-size: 0.82rem;
+      border-radius: 10px;
+      background: #f1f5f9;
+      color: #374151;
+      border: 1px solid #e5e7eb;
+      font-weight: 700;
+      transition: background 0.15s, color 0.15s;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .reporte-nav button.active,
+    .reporte-nav button:hover {
+      background: #2563eb;
+      color: #fff;
+      border-color: #2563eb;
+    }
+
+    /* ── RANGO PERSONALIZADO ── */
+    .rango-row {
+      display: flex;
+      gap: 10px;
+      align-items: flex-end;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }
+
+    .rango-row input[type="date"] {
+      flex: 1;
+      min-width: 130px;
+      margin-bottom: 0;
+    }
+
+    .rango-row button {
+      width: auto;
+      padding: 11px 20px;
+      font-size: 0.88rem;
+      white-space: nowrap;
+    }
+
+    .periodo-label {
+      font-size: 0.82rem;
+      color: #6b7280;
+      font-weight: 600;
+      margin-top: 10px;
+    }
+
+    /* ── STATS RESUMEN ── */
+    .reporte-stats {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+
+    .reporte-stat-card {
+      background: #f8fafc;
+      border: 1px solid #e5e7eb;
+      border-radius: 14px;
+      padding: 14px 12px;
+      text-align: center;
+    }
+
+    .reporte-stat-card .stat-label {
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: #6b7280;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 5px;
+    }
+
+    .reporte-stat-card .stat-value {
+      font-size: 1.25rem;
+      font-weight: 800;
+      color: #111827;
+    }
+
+    .reporte-stat-card.verde { border-color: #22c55e; background: #f0fdf4; }
+    .reporte-stat-card.verde .stat-value { color: #15803d; }
+    .reporte-stat-card.rojo  { border-color: #f87171; background: #fef2f2; }
+    .reporte-stat-card.rojo  .stat-value { color: #b91c1c; }
+    .reporte-stat-card.azul  { border-color: #60a5fa; background: #eff6ff; }
+    .reporte-stat-card.azul  .stat-value { color: #1d4ed8; }
+    .reporte-stat-card.ambar { border-color: #fbbf24; background: #fffbeb; }
+    .reporte-stat-card.ambar .stat-value { color: #b45309; }
+
+    /* ── SECCIONES ── */
+    .reporte-seccion h3 {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #111827;
+      margin: 0 0 12px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid #e5e7eb;
+    }
+
+    /* ── FILAS DE CLIENTES ── */
+    .cliente-fila {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      margin-bottom: 6px;
+      background: #f8fafc;
+      border: 1px solid #e5e7eb;
+    }
+
+    .cliente-fila.pagado  { background: #f0fdf4; border-color: #86efac; }
+    .cliente-fila.no-pago { background: #fef2f2; border-color: #fca5a5; }
+
+    .cliente-fila-avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 9px;
+      object-fit: cover;
+      border: 1px solid #e5e7eb;
+      flex-shrink: 0;
+    }
+
+    .cliente-fila-info { flex: 1; min-width: 0; }
+    .cliente-fila-info strong {
+      display: block;
+      font-size: 0.88rem;
+      color: #111827;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .cliente-fila-info span { font-size: 0.76rem; color: #6b7280; }
+
+    .cliente-fila-monto {
+      font-weight: 800;
+      font-size: 0.88rem;
+      color: #111827;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .dot {
+      width: 9px; height: 9px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .dot.verde { background: #22c55e; }
+    .dot.rojo  { background: #ef4444; }
+
+    /* ── TABLA ── */
+    .tabla-pagos-container {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      border-radius: 8px;
+    }
+
+    /* ── PLACEHOLDER ── */
+    .reporte-placeholder {
+      text-align: center;
+      padding: 28px 16px;
+      color: #9ca3af;
+      font-size: 0.88rem;
+    }
+
+    /* ── RESPONSIVE MÓVIL ── */
+    @media (max-width: 600px) {
+      .reporte-wrapper {
+        padding: 0 12px;
+        margin-top: 12px;
+        gap: 12px;
+      }
+
+      /* Navegación: 2x2 en móvil */
+      .reporte-nav {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .reporte-nav button {
+        font-size: 0.78rem;
+        padding: 9px 4px;
+      }
+
+      /* Rango: columna completa */
+      .rango-row {
+        flex-direction: column;
+      }
+
+      .rango-row input[type="date"],
+      .rango-row button {
+        width: 100%;
+        min-width: unset;
+      }
+
+      /* Stats: 2 columnas en móvil */
+      .reporte-stats {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+      }
+
+      .reporte-stat-card {
+        padding: 12px 8px;
+      }
+
+      .reporte-stat-card .stat-label {
+        font-size: 0.68rem;
+      }
+
+      .reporte-stat-card .stat-value {
+        font-size: 1.1rem;
+      }
+
+      /* Tabla: scroll horizontal */
+      .tabla-pagos-container table {
+        min-width: 380px;
+      }
+
+      /* Header acciones en columna */
+      .header-actions {
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+
+      .header-actions span {
+        font-size: 0.78rem;
+        width: 100%;
+      }
+
+      .reporte-seccion h3 {
+        font-size: 0.88rem;
+      }
+
+      .cliente-fila-info strong {
+        font-size: 0.84rem;
+      }
+
+      .cliente-fila-monto {
+        font-size: 0.82rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="header-content">
+      <div>
+        <h1>Reportes</h1>
+      </div>
+      <div class="header-actions">
+        <span id="usuarioEmail"></span>
+        <a href="index.html" style="text-decoration:none;">
+          <button class="btn-secondary small">← Volver</button>
+        </a>
+        <button id="logoutButton" class="btn-danger small">Cerrar sesión</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="reporte-wrapper">
+
+    <!-- Navegación de período -->
+    <div class="card">
+      <div class="reporte-nav">
+        <button id="btn-hoy"    onclick="setPeriodo('hoy')"    class="active">Hoy</button>
+        <button id="btn-semana" onclick="setPeriodo('semana')">Semana</button>
+        <button id="btn-mes"    onclick="setPeriodo('mes')">Mes</button>
+        <button id="btn-rango"  onclick="setPeriodo('rango')">Rango</button>
+      </div>
+
+      <div id="rangoInputs" class="rango-row hidden">
+        <input type="date" id="fechaDesde" />
+        <input type="date" id="fechaHasta" />
+        <button onclick="aplicarRango()">Aplicar</button>
+      </div>
+
+      <div id="periodoLabel" class="periodo-label"></div>
+    </div>
+
+    <!-- Contenido generado por JS -->
+    <div id="reporteContenido">
+      <div class="reporte-placeholder">Cargando reporte...</div>
+    </div>
+
+  </div>
+
+  <div id="toast" class="toast"></div>
+  <script type="module" src="reportes.js"></script>
+</body>
+</html>
