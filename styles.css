@@ -3,6 +3,12 @@ html {
   scroll-behavior: smooth;
 }
 
+/* FIX GLOBAL - va aquí arriba, fuera de cualquier media query */
+html, body {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
 *,
 *::before,
 *::after {
@@ -56,6 +62,16 @@ header p {
 .header-actions span {
   color: #e1e1e1;
   font-size: 0.95rem;
+}
+
+/* Header: email largo no rompe layout */
+#usuarioEmail {
+  word-break: break-all;
+  font-size: 0.78rem;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .login-page {
@@ -141,7 +157,7 @@ header p {
 }
 
 .form-group label {
-  color: #cbd5e1; /* ← era #ffffff, ahora gris claro para no confundir con texto escrito */
+  color: #cbd5e1;
   font-size: 0.92rem;
   font-weight: 700;
 }
@@ -158,14 +174,14 @@ header p {
   width: auto;
   padding: 8px 10px;
   background: transparent;
-  color: #6b7280; /* ← era #000000 */
+  color: #6b7280;
   border: none;
   font-weight: 700;
   cursor: pointer;
 }
 
 .input-group .password-toggle:hover {
-  color: #374151; /* ← era #000000 */
+  color: #374151;
 }
 
 input {
@@ -174,12 +190,12 @@ input {
   border-radius: 16px;
   border: 1px solid rgba(148, 163, 184, 0.18);
   background: rgba(255, 255, 255, 0.06);
-  color: #f8fafc; /* texto que escribe el usuario en inputs oscuros */
+  color: #f8fafc;
 }
 
 #password {
   background: rgba(255, 255, 255, 0.98);
-  color: #111827; /* texto escrito en campo de contraseña (fondo claro) */
+  color: #111827;
 }
 
 #password::placeholder {
@@ -237,21 +253,25 @@ button:disabled {
   display: flex;
   gap: 16px;
   max-width: 1320px;
+  width: 100%;
   margin: 16px auto 32px;
   padding: 0 16px;
   align-items: flex-start;
   flex-wrap: wrap;
+  box-sizing: border-box;
 }
 
 .panel {
   display: flex;
   flex-direction: column;
   gap: 16px;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .panel-left {
   flex: 0 0 360px;
-  min-width: 280px;
+  min-width: 0;
 }
 
 .panel-right {
@@ -266,6 +286,8 @@ button:disabled {
   border-radius: 16px;
   box-shadow: 0 4px 16px rgba(15, 23, 42, 0.07);
   overflow: hidden;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .card-small {
@@ -324,11 +346,13 @@ textarea {
   border-radius: 10px;
   border: 1px solid #d1d5db;
   background: #f9fafb;
-  font-size: 0.95rem;
+  font-size: 16px !important; /* evita zoom en iOS y Android */
   outline: none;
   transition: border-color 0.2s ease;
   -webkit-appearance: none;
-  color: #1f2937; /* ← texto que escribe el usuario */
+  color: #1f2937;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 input:focus {
@@ -415,19 +439,25 @@ button.btn-secondary:hover {
 .client-list {
   display: grid;
   gap: 14px;
+  width: 100%;
+  overflow: hidden;
 }
 
+/* ─── CLIENT CARD ─── */
 .client-card {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 14px;
   background: #f8fafc;
-  padding: 20px;
   border-radius: 18px;
   border: 1px solid #e5e7eb;
   cursor: pointer;
   transition: transform 0.15s ease, box-shadow 0.15s ease;
+  width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .client-card:hover {
@@ -436,28 +466,32 @@ button.btn-secondary:hover {
 }
 
 .client-card-avatar {
-  width: 72px;
-  height: 72px;
+  width: 64px;
+  height: 64px;
   object-fit: cover;
-  border-radius: 18px;
+  border-radius: 14px;
   border: 2px solid #e5e7eb;
   flex-shrink: 0;
 }
 
 .client-card-content {
-  flex: 1;
+  flex: 1 1 140px;
   min-width: 0;
+  word-break: break-word;
 }
 
 .client-card h3 {
-  margin: 0 0 10px;
-  font-size: 1.1rem;
+  margin: 0 0 6px;
+  font-size: 0.95rem;
+  white-space: normal;
+  word-break: break-word;
 }
 
 .client-card p {
-  margin: 4px 0;
+  margin: 3px 0;
   color: #475569;
-  font-size: 0.95rem;
+  font-size: 0.85rem;
+  word-break: break-word;
 }
 
 .client-card p strong {
@@ -465,8 +499,18 @@ button.btn-secondary:hover {
 }
 
 .client-card-actions {
+  flex-shrink: 0;
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-end;
+}
+
+.client-card-actions button {
+  width: auto;
+  white-space: nowrap;
+  padding: 8px 14px;
+  font-size: 0.8rem;
 }
 
 .loan-item:hover {
@@ -494,7 +538,7 @@ button.btn-secondary:hover {
 }
 
 .loan-item-meta {
-  color: #475569; /* ← era #000000 */
+  color: #475569;
   font-size: 0.92rem;
   line-height: 1.5;
 }
@@ -543,7 +587,6 @@ button.btn-secondary:hover {
   font-size: 0.85rem;
 }
 
-
 .help-text {
   margin: 8px 0 0;
   color: #4b5563;
@@ -569,16 +612,6 @@ button.btn-secondary:hover {
   margin-bottom: 4px;
   font-weight: 700;
   color: #111827;
-}
-
-@media (max-width: 720px) {
-  .manual-cuota-row {
-    grid-template-columns: 1fr;
-  }
-
-  .field-grid {
-    grid-template-columns: 1fr;
-  }
 }
 
 .modal-overlay {
@@ -645,22 +678,10 @@ button.btn-secondary:hover {
   transform: translateY(0);
 }
 
-.toast.info {
-  background: #2563eb;
-}
-
-.toast.success {
-  background: #16a34a;
-}
-
-.toast.warning {
-  background: #f59e0b;
-  color: #1f2937;
-}
-
-.toast.error {
-  background: #dc2626;
-}
+.toast.info { background: #2563eb; }
+.toast.success { background: #16a34a; }
+.toast.warning { background: #f59e0b; color: #1f2937; }
+.toast.error { background: #dc2626; }
 
 .fab {
   position: fixed;
@@ -703,7 +724,8 @@ button.btn-secondary:hover {
 table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 480px;
+  min-width: 0;        /* ← CORREGIDO: era 480px, ese era el culpable */
+  table-layout: fixed;
 }
 
 th,
@@ -712,7 +734,8 @@ td {
   border-bottom: 1px solid #e5e7eb;
   text-align: left;
   font-size: 0.9rem;
-  white-space: nowrap;
+  white-space: normal;      /* ← CORREGIDO: era nowrap */
+  word-break: break-word;   /* ← NUEVO */
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 180px;
@@ -725,21 +748,10 @@ th {
   font-size: 0.82rem;
 }
 
-tbody tr:hover {
-  background: #f9fafb;
-}
-
-tbody tr.activo {
-  background: #eff6ff;
-}
-
-tbody tr.clickable {
-  cursor: pointer;
-}
-
-tbody tr.clickable:hover {
-  background: #eef2ff;
-}
+tbody tr:hover { background: #f9fafb; }
+tbody tr.activo { background: #eff6ff; }
+tbody tr.clickable { cursor: pointer; }
+tbody tr.clickable:hover { background: #eef2ff; }
 
 td .action-group {
   display: flex;
@@ -758,7 +770,9 @@ td .action-group {
   font-weight: 700;
   background: #e0f2fe;
   color: #0369a1;
-  white-space: nowrap;
+  white-space: normal;
+  word-break: break-word;
+  max-width: 100%;
 }
 
 /* ─── PERFIL ─── */
@@ -803,23 +817,15 @@ td .action-group {
   padding: 10px 14px;
   border-radius: 12px;
   background: #2563eb;
-  color: #ffffff; /* ← era rgb(0,0,0) */
+  color: #ffffff;
   text-decoration: none;
   font-weight: 700;
   transition: background-color 0.2s ease, transform 0.1s ease;
 }
 
-.profile-actions .action-button:hover {
-  background: #1d4ed8;
-}
-
-.profile-actions .action-button.secondary {
-  background: #4b5563;
-}
-
-.profile-actions .action-button.secondary:hover {
-  background: #374151;
-}
+.profile-actions .action-button:hover { background: #1d4ed8; }
+.profile-actions .action-button.secondary { background: #4b5563; }
+.profile-actions .action-button.secondary:hover { background: #374151; }
 
 /* ─── STATS ─── */
 .stats-grid {
@@ -853,7 +859,7 @@ td .action-group {
 .placeholder {
   padding: 48px 20px;
   text-align: center;
-  color: #6b7280; /* ← era #000000 */
+  color: #6b7280;
 }
 
 /* ─── RESPONSIVE: TABLET ─── */
@@ -871,22 +877,15 @@ td .action-group {
 
 /* ─── RESPONSIVE: MÓVIL ─── */
 @media (max-width: 600px) {
-  header {
-    padding: 14px 16px;
-  }
+  header { padding: 14px 16px; }
 
   .header-content {
     flex-direction: column;
     gap: 8px;
   }
 
-  header h1 {
-    font-size: 1.25rem;
-  }
-
-  header p {
-    font-size: 0.82rem;
-  }
+  header h1 { font-size: 1.25rem; }
+  header p { font-size: 0.82rem; }
 
   .dashboard {
     padding: 0 12px;
@@ -899,21 +898,10 @@ td .action-group {
     border-radius: 14px;
   }
 
-  .card-small {
-    padding: 12px;
-  }
-
-  .card h2 {
-    font-size: 1rem;
-  }
-
-  .card h3 {
-    font-size: 0.92rem;
-  }
-
-  .card h4 {
-    font-size: 0.85rem;
-  }
+  .card-small { padding: 12px; }
+  .card h2 { font-size: 1rem; }
+  .card h3 { font-size: 0.92rem; }
+  .card h4 { font-size: 0.85rem; }
 
   .tab-button {
     padding: 10px 8px;
@@ -922,7 +910,6 @@ td .action-group {
 
   input {
     padding: 11px 12px;
-    font-size: 0.9rem;
   }
 
   button {
@@ -936,15 +923,12 @@ td .action-group {
     min-width: 48px;
   }
 
-  th,
-  td {
+  th, td {
     padding: 9px 10px;
     font-size: 0.8rem;
   }
 
-  th {
-    font-size: 0.75rem;
-  }
+  th { font-size: 0.75rem; }
 
   td .action-group {
     gap: 5px;
@@ -957,9 +941,7 @@ td .action-group {
     padding: 3px 8px;
   }
 
-  .profile-card {
-    gap: 12px;
-  }
+  .profile-card { gap: 12px; }
 
   .profile-card img {
     width: 58px;
@@ -967,29 +949,17 @@ td .action-group {
     border-radius: 12px;
   }
 
-  .profile-info p {
-    font-size: 0.83rem;
-  }
+  .profile-info p { font-size: 0.83rem; }
 
-  .stats-grid {
-    gap: 8px;
-  }
+  .stats-grid { gap: 8px; }
 
-  .stats-card {
-    padding: 11px;
-  }
+  .stats-card { padding: 11px; }
 
-  .stats-card strong {
-    font-size: 1.05rem;
-  }
+  .stats-card strong { font-size: 1.05rem; }
 
-  .loan-item-grid {
-    grid-template-columns: 1fr;
-  }
+  .loan-item-grid { grid-template-columns: 1fr; }
 
-  .loan-item-actions {
-    justify-content: flex-start;
-  }
+  .loan-item-actions { justify-content: flex-start; }
 
   .placeholder {
     padding: 36px 16px;
@@ -999,137 +969,15 @@ td .action-group {
   .panel-left,
   .panel-right {
     width: 100%;
+    min-width: 0;
   }
 
-  .table-container {
-    overflow-x: auto;
-  }/* =====================================================
-   PEGA ESTO AL FINAL DE TU styles.css
-   Arregla el desbordamiento en móviles de cualquier tamaño
-   ===================================================== */
-
-/* Evita scroll horizontal global */
-html, body {
-  max-width: 100%;
-  overflow-x: hidden;
+  .manual-cuota-row { grid-template-columns: 1fr; }
+  .field-grid { grid-template-columns: 1fr; }
 }
 
-/* Dashboard no se sale de pantalla */
-.dashboard {
-  width: 100%;
-  max-width: 100%;
-  padding-left: 12px;
-  padding-right: 12px;
-  box-sizing: border-box;
-  overflow: hidden;
-}
-
-/* Cards sin desbordamiento */
-.card,
-.client-card,
-.loan-card,
-.loan-item {
-  width: 100%;
-  max-width: 100%;
-  box-sizing: border-box;
-  overflow: hidden; /* corta lo que se salga */
-}
-
-/* Client-card: layout flexible que no se rompe */
-.client-card {
-  display: flex;
-  align-items: flex-start;      /* alineación top para cuando hay mucho texto */
-  flex-wrap: wrap;              /* si no cabe, baja a la siguiente línea */
-  gap: 10px;
-  padding: 14px;
-}
-
-/* Avatar no se encoge ni se desborda */
-.client-card-avatar {
-  width: 64px;
-  height: 64px;
-  flex-shrink: 0;
-  object-fit: cover;
-  border-radius: 14px;
-}
-
-/* Contenido del cliente ocupa el espacio disponible */
-.client-card-content {
-  flex: 1 1 140px;   /* crece, pero si no cabe baja */
-  min-width: 0;      /* CRÍTICO: sin esto flex ignora el ancho del padre */
-  word-break: break-word;
-}
-
-/* Nombre largo no desborda */
-.client-card h3 {
-  font-size: 0.95rem;
-  margin: 0 0 6px;
-  white-space: normal;  /* permite salto de línea */
-  word-break: break-word;
-}
-
-.client-card p {
-  font-size: 0.85rem;
-  margin: 3px 0;
-  word-break: break-word;
-}
-
-/* Acciones: botones siempre visibles */
-.client-card-actions {
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  align-items: flex-end;
-}
-
-.client-card-actions button {
-  width: auto;
-  white-space: nowrap;
-  padding: 8px 14px;
-  font-size: 0.8rem;
-}
-
-/* Badge "Pago hoy" no desborda */
-.badge {
-  white-space: normal;    /* permite que el texto baje de línea si es largo */
-  word-break: break-word;
-  max-width: 100%;
-}
-
-/* Lista de clientes sin desbordamiento */
-.client-list {
-  width: 100%;
-  overflow: hidden;
-}
-
-/* Panel izquierdo/derecho sin desbordamiento */
-.panel,
-.panel-left,
-.panel-right {
-  min-width: 0;
-  max-width: 100%;
-  overflow: hidden;
-}
-
-/* Inputs: font-size 16px evita zoom en iOS */
-input, select, textarea {
-  font-size: 16px !important;
-  max-width: 100%;
-}
-
-/* Header: email largo no rompe layout */
-#usuarioEmail {
-  word-break: break-all;
-  font-size: 0.78rem;
-  max-width: 160px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
+/* ─── RESPONSIVE: MÓVIL PEQUEÑO ─── */
 @media (max-width: 480px) {
-  /* Header en columna en móviles pequeños */
   .header-content {
     flex-direction: column;
     align-items: flex-start;
@@ -1141,13 +989,11 @@ input, select, textarea {
     gap: 6px;
   }
 
-  /* Botón Reportes no se sale */
   .header-actions a,
   .header-actions button {
     flex-shrink: 0;
   }
 
-  /* Client card: avatar arriba, contenido abajo si es muy angosto */
   .client-card {
     padding: 12px;
     gap: 8px;
@@ -1158,14 +1004,9 @@ input, select, textarea {
     height: 54px;
   }
 
-  /* Acciones al final de la card, full width */
   .client-card-actions {
     width: 100%;
     flex-direction: row;
     justify-content: flex-end;
   }
-}
-
-
-
 }
