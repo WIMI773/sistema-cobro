@@ -75,6 +75,18 @@ function etiquetaPeriodo(desde, hasta) {
   return `Del ${formatearFecha(desde)} al ${formatearFecha(hasta)}`;
 }
 
+// ── Saldo real usando la colección pagos (igual que detalle.js) ───────
+// Suma todos los pagos registrados para ese préstamo, sin importar el período
+function totalCobradoReal(prestamoId) {
+  return pagos
+    .filter(pg => pg.prestamoId === prestamoId)
+    .reduce((s, pg) => s + Number(pg.valor || 0), 0);
+}
+
+function saldoReal(prestamo) {
+  return Math.max(0, Number(prestamo.total || 0) - totalCobradoReal(prestamo.id));
+}
+
 async function cargarTodo() {
   if (!userId) return;
   const [snapC, snapP, snapPg] = await Promise.all([
@@ -92,28 +104,23 @@ function renderReporte() {
 
   document.getElementById('periodoLabel').textContent = etiquetaPeriodo(desde, hasta);
 
+  // Pagos del período filtrado
   const pagosFiltrados = pagos.filter(p => enRango(p.fecha, desde, hasta));
+  // Total recaudado en el período = suma real de lo cobrado
   const totalRecaudado = pagosFiltrados.reduce((s, p) => s + Number(p.valor || 0), 0);
+
   const clientesQuePageron = new Set(pagosFiltrados.map(p => p.clienteId));
-  const prestamosActivos = prestamos.filter(p => p.estado === 'Activo');
+  const prestamosActivos   = prestamos.filter(p => p.estado === 'Activo');
 
   let totalMora = 0;
 
-  // "Total prestado" = suma de (capital+intereses) de todos los préstamos activos
-  //                    MENOS todo lo que ya se ha cobrado en esos préstamos (sin filtro de fecha)
-  // → sube cuando creas un préstamo, baja cada vez que cobras una cuota
+  // "Total prestado" = suma de saldos reales pendientes de todos los préstamos activos
+  // Usa la colección pagos para el cálculo, no el estado de las cuotas
   const totalPrestado = prestamosActivos.reduce((suma, p) => {
-    const cobrado = Array.isArray(p.cuotas)
-      ? p.cuotas
-          .filter(c => c.estado === 'pagada')
-          .reduce((s, c) => s + Number(c.valor || 0), 0)
-      : 0;
-
     if (Array.isArray(p.cuotas)) {
       totalMora += p.cuotas.filter(c => c.estado === 'mora').length;
     }
-
-    return suma + Math.max(0, Number(p.total || 0) - cobrado);
+    return suma + saldoReal(p);
   }, 0);
 
   const clientesConPago = clientes.filter(c => clientesQuePageron.has(c.id));
@@ -212,7 +219,7 @@ function renderReporte() {
                 <tr>
                   <th>Cliente</th>
                   <th>Cuota N°</th>
-                  <th>Valor</th>
+                  <th>Valor pagado</th>
                   <th>Fecha</th>
                 </tr>
               </thead>
@@ -224,7 +231,7 @@ function renderReporte() {
                     return `
                       <tr>
                         <td>${cliente ? cliente.nombre : '-'}</td>
-                        <td>${p.cuotaNumero}</td>
+                        <td>${p.cuotaNumero || '-'}</td>
                         <td>${formatearMoneda(p.valor)}</td>
                         <td>${formatearFecha(normalizarFecha(p.fecha))}</td>
                       </tr>
@@ -245,7 +252,8 @@ function renderReporte() {
               <thead>
                 <tr>
                   <th>Cliente</th>
-                  <th>Prestado</th>
+                  <th>Total</th>
+                  <th>Cobrado</th>
                   <th>Saldo</th>
                   <th>Mora</th>
                   <th>Frecuencia</th>
@@ -254,17 +262,16 @@ function renderReporte() {
               <tbody>
                 ${prestamosActivos.map(p => {
                   const cliente = clientes.find(c => c.id === p.clienteId);
-                  const pagado  = Array.isArray(p.cuotas)
-                    ? p.cuotas.filter(c => c.estado === 'pagada').reduce((s, c) => s + Number(c.valor || 0), 0)
-                    : 0;
-                  const saldo = Math.round(Number(p.total || 0) - pagado);
-                  const mora  = Array.isArray(p.cuotas)
+                  const cobrado = totalCobradoReal(p.id);
+                  const saldo   = saldoReal(p);
+                  const mora    = Array.isArray(p.cuotas)
                     ? p.cuotas.filter(c => c.estado === 'mora').length
                     : 0;
                   return `
                     <tr>
                       <td>${cliente ? cliente.nombre : '-'}</td>
                       <td>${formatearMoneda(p.total)}</td>
+                      <td>${formatearMoneda(cobrado)}</td>
                       <td>${formatearMoneda(saldo)}</td>
                       <td>${mora > 0 ? `<span class="badge mora">${mora}</span>` : '0'}</td>
                       <td>${p.frecuencia || '-'}</td>

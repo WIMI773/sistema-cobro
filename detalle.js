@@ -217,7 +217,6 @@ async function actualizarMoras() {
       }
     });
 
-    // Recalcular estado del préstamo en base a saldo real
     const cobradoTotal = totalPagadoReal(p);
     const nuevoEstado = cobradoTotal >= p.total ? "Pagado" : "Activo";
     if (nuevoEstado !== p.estado) {
@@ -236,8 +235,6 @@ async function actualizarMoras() {
   }
 }
 
-// ─── Calcula lo realmente cobrado usando los registros de pagos ────────────
-// Usa valorPagado si existe (pago con monto editado), si no usa valor (cuota fija)
 function totalPagadoReal(prestamo) {
   const pagosDelPrestamo = pagos.filter(pg => pg.prestamoId === prestamo.id);
   return pagosDelPrestamo.reduce((sum, pg) => sum + Number(pg.valor || 0), 0);
@@ -265,6 +262,49 @@ function mostrarCargando() {
   document.getElementById("detalleContainer").innerHTML =
     `<div class="placeholder">Cargando información del cliente...</div>`;
 }
+
+// ─── Genera el enlace de WhatsApp con mensaje de recordatorio ─────────────
+function generarEnlaceWhatsApp(cliente, prestamosCliente) {
+  const whatsappDigits = (cliente.telefono || "").replace(/\D/g, "");
+  if (!whatsappDigits) return null;
+
+  // Buscar próxima cuota pendiente o en mora
+  let proximaCuota = null;
+  let prestamoConCuota = null;
+  for (const p of prestamosCliente) {
+    if (p.estado !== "Activo") continue;
+    const cuota = p.cuotas?.find(c => c.estado === "mora" || c.estado === "pendiente" || c.estado === "parcial");
+    if (cuota) {
+      proximaCuota = cuota;
+      prestamoConCuota = p;
+      break;
+    }
+  }
+
+  const saldoTotal = prestamosCliente.reduce((s, p) => s + saldoPendiente(p), 0);
+  const mora = prestamosCliente.reduce((s, p) => s + cuotasEnMora(p), 0);
+
+  let mensaje = `Hola ${cliente.nombre} 👋, le recordamos que tiene un saldo pendiente con nosotros.\n\n`;
+
+  if (proximaCuota && prestamoConCuota) {
+    // Formatear fecha de vencimiento legible
+    const [y, m, d] = proximaCuota.fecha.split("-");
+    const fechaLegible = `${d}/${m}/${y}`;
+    mensaje += `📋 *Próxima cuota:* ${formatCOP(proximaCuota.valor)}\n`;
+    mensaje += `📅 *Vencimiento:* ${fechaLegible}\n`;
+  }
+
+  mensaje += `💰 *Saldo total pendiente:* ${formatCOP(saldoTotal)}\n`;
+
+  if (mora > 0) {
+    mensaje += `⚠️ *Cuotas en mora:* ${mora}\n`;
+  }
+
+  mensaje += `\nPor favor realice su pago a la mayor brevedad posible. ¡Gracias! 🙏`;
+
+  return `https://wa.me/${whatsappDigits}?text=${encodeURIComponent(mensaje)}`;
+}
+// ─────────────────────────────────────────────────────────────────────────
 
 async function renderDetalleCliente() {
   let cont = document.getElementById("detalleContainer");
@@ -329,13 +369,16 @@ async function renderDetalleCliente() {
       `).join("")
     : `<tr><td colspan="3">No hay pagos registrados.</td></tr>`;
 
-  const telefonoCliente  = cliente.telefono ? cliente.telefono.trim() : "";
-  const whatsappDigits   = telefonoCliente.replace(/\D/g, "");
-  const tieneTelefono    = telefonoCliente.length > 0;
+  const telefonoCliente = cliente.telefono ? cliente.telefono.trim() : "";
+  const tieneTelefono   = telefonoCliente.length > 0;
+
+  // Generar enlace WhatsApp con mensaje de recordatorio
+  const enlaceWhatsApp = generarEnlaceWhatsApp(cliente, prestamosCliente);
+
   const accionesContacto = tieneTelefono ? `
     <div class="profile-actions">
       <a class="action-button" href="tel:${encodeURIComponent(telefonoCliente)}">Llamar</a>
-      ${whatsappDigits ? `<a class="action-button secondary" href="https://wa.me/${whatsappDigits}" target="_blank" rel="noopener">WhatsApp</a>` : ""}
+      ${enlaceWhatsApp ? `<a class="action-button secondary" href="${enlaceWhatsApp}" target="_blank" rel="noopener">WhatsApp</a>` : ""}
     </div>
   ` : `<div class="profile-actions"><span class="help-text">Teléfono no disponible</span></div>`;
 
@@ -445,24 +488,24 @@ function seleccionarPrestamo(id) {
 async function crearPrestamoCliente() {
   if (!clienteId || !userId) return;
 
-  const montoEl     = document.getElementById("monto");
+  const montoEl      = document.getElementById("monto");
   const valorCuotaEl = document.getElementById("valorCuota");
 
-  let monto          = getRawNumber(montoEl);
-  let interes        = parseFloat(document.getElementById("interes").value);
+  let monto           = getRawNumber(montoEl);
+  let interes         = parseFloat(document.getElementById("interes").value);
   let valorCuotaInput = getRawNumber(valorCuotaEl);
-  let numCuotas      = parseInt(document.getElementById("cuotas").value, 10);
-  let frecuencia     = document.getElementById("frecuencia").value;
+  let numCuotas       = parseInt(document.getElementById("cuotas").value, 10);
+  let frecuencia      = document.getElementById("frecuencia").value;
 
   if (isNaN(monto) || isNaN(interes) || isNaN(numCuotas) || monto <= 0 || numCuotas <= 0) {
     mostrarNotificacion("Complete todos los datos correctamente.", "error");
     return;
   }
 
-  let total          = Math.round(monto + (monto * interes / 100));
-  let valorCuotaBase = Math.floor(total / numCuotas);
-  let resto          = total - valorCuotaBase * numCuotas;
-  let fechaInicio    = hoy();
+  let total           = Math.round(monto + (monto * interes / 100));
+  let valorCuotaBase  = Math.floor(total / numCuotas);
+  let resto           = total - valorCuotaBase * numCuotas;
+  let fechaInicio     = hoy();
   let valorCuotaManual = !isNaN(valorCuotaInput) && valorCuotaInput > 0;
 
   let listaCuotas = [];
@@ -474,9 +517,9 @@ async function crearPrestamoCliente() {
       return;
     }
     for (let i = 0; i < rows.length; i++) {
-      let fecha  = rows[i].querySelector(".manual-cuota-fecha")?.value?.trim();
-      const vEl  = rows[i].querySelector(".manual-cuota-valor");
-      let valor  = parseFloat((vEl?.dataset?.rawValue || vEl?.value || "").replace(/\D/g, ""));
+      let fecha = rows[i].querySelector(".manual-cuota-fecha")?.value?.trim();
+      const vEl = rows[i].querySelector(".manual-cuota-valor");
+      let valor = parseFloat((vEl?.dataset?.rawValue || vEl?.value || "").replace(/\D/g, ""));
       if (!fecha || isNaN(new Date(fecha).getTime())) {
         mostrarNotificacion(`Fecha inválida en cuota ${i + 1}.`, "error"); return;
       }
@@ -527,7 +570,6 @@ async function pagarCuota(prestamoId) {
 
   await actualizarMoras();
 
-  // Verificar si ya está completamente pagado por saldo real
   const saldo = saldoPendiente(prestamo);
   if (saldo <= 0) {
     mostrarNotificacion("Este préstamo ya está completamente pagado.", "warning");
@@ -538,8 +580,7 @@ async function pagarCuota(prestamoId) {
     return;
   }
 
-  // Buscar la próxima cuota no pagada para mostrar info de referencia
-  let cuota = prestamo.cuotas.find(c => c.estado === "mora" || c.estado === "pendiente");
+  let cuota = prestamo.cuotas.find(c => c.estado === "mora" || c.estado === "pendiente" || c.estado === "parcial");
 
   pagoModalPrestamoId  = prestamo.id;
   pagoModalCuotaNumero = cuota ? cuota.numero : null;
@@ -554,9 +595,8 @@ async function pagarCuota(prestamoId) {
 
   document.getElementById("modalPagoFecha").value = hoy();
 
-  // Precargar con el valor de la cuota fija, pero editable libremente
   const montoInput = document.getElementById("modalPagoMonto");
-  const valorSugerido = cuota ? cuota.valor : saldo;
+  const valorSugerido = cuota ? (cuota.valor - Number(cuota.abonado || 0)) : saldo;
   montoInput.dataset.rawValue = String(valorSugerido);
   montoInput.value = Number(valorSugerido).toLocaleString("es-CO");
 
@@ -608,10 +648,6 @@ async function confirmarPagoCuota() {
     return;
   }
 
-  // ── Distribuir el monto pagado entre las cuotas pendientes ────────────
-  // El monto se distribuye desde la cuota más antigua hacia adelante.
-  // Si paga más de la cuota fija, la cuota queda pagada y el excedente
-  // va a la siguiente. Si paga menos, la cuota queda marcada como "parcial".
   let restoPago = montoPagado;
   let cuotasActualizadas = [...prestamo.cuotas];
 
@@ -623,34 +659,21 @@ async function confirmarPagoCuota() {
     const faltaCuota = c.valor - yaAbonado;
 
     if (restoPago >= faltaCuota) {
-      // Cubre esta cuota completa
-      cuotasActualizadas[i] = {
-        ...c,
-        estado: "pagada",
-        fechaPago,
-        abonado: c.valor
-      };
+      cuotasActualizadas[i] = { ...c, estado: "pagada", fechaPago, abonado: c.valor };
       restoPago -= faltaCuota;
     } else {
-      // Pago parcial de esta cuota
-      cuotasActualizadas[i] = {
-        ...c,
-        estado: "parcial",
-        abonado: yaAbonado + restoPago
-      };
+      cuotasActualizadas[i] = { ...c, estado: "parcial", abonado: yaAbonado + restoPago };
       restoPago = 0;
     }
   }
 
   prestamo.cuotas = cuotasActualizadas;
 
-  // Recalcular estado del préstamo con el nuevo pago incluido
   const totalCobradoTrasEste = totalPagadoReal(prestamo) + montoPagado;
   if (totalCobradoTrasEste >= prestamo.total) {
     prestamo.estado = "Pagado";
   }
 
-  // Guardar pago real en colección pagos
   const pago = {
     prestamoId:  prestamo.id,
     clienteId:   prestamo.clienteId,
@@ -670,17 +693,17 @@ async function confirmarPagoCuota() {
   mostrarNotificacion(`Pago de ${formatCOP(montoPagado)} registrado correctamente.`, "success");
 }
 
-window.seleccionarPrestamo  = seleccionarPrestamo;
-window.crearPrestamoCliente = crearPrestamoCliente;
-window.pagarCuota           = pagarCuota;
-window.eliminarPrestamo     = eliminarPrestamo;
-window.toggleManual         = toggleManual;
+window.seleccionarPrestamo    = seleccionarPrestamo;
+window.crearPrestamoCliente   = crearPrestamoCliente;
+window.pagarCuota             = pagarCuota;
+window.eliminarPrestamo       = eliminarPrestamo;
+window.toggleManual           = toggleManual;
 window.renderManualCuotasRows = renderManualCuotasRows;
-window.confirmarPagoCuota   = confirmarPagoCuota;
-window.abrirModalPago       = abrirModalPago;
-window.cerrarModalPago      = cerrarModalPago;
-window.setDetalleTab        = setDetalleTab;
-window.abrirTabPrestamo     = abrirTabPrestamo;
+window.confirmarPagoCuota     = confirmarPagoCuota;
+window.abrirModalPago         = abrirModalPago;
+window.cerrarModalPago        = cerrarModalPago;
+window.setDetalleTab          = setDetalleTab;
+window.abrirTabPrestamo       = abrirTabPrestamo;
 
 onAuthChange(async user => {
   if (!user) { window.location.href = "login.html"; return; }
