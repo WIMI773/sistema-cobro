@@ -15,7 +15,6 @@ let periodoActivo = 'hoy';
 let rangoDesde    = '';
 let rangoHasta    = '';
 
-// ── Utilidades de fecha (hora local, no UTC) ──────────────────────────
 function fechaLocal(d = new Date()) {
   const yyyy = d.getFullYear();
   const mm   = String(d.getMonth() + 1).padStart(2, '0');
@@ -76,7 +75,6 @@ function etiquetaPeriodo(desde, hasta) {
   return `Del ${formatearFecha(desde)} al ${formatearFecha(hasta)}`;
 }
 
-// ── Carga de datos ────────────────────────────────────────────────────
 async function cargarTodo() {
   if (!userId) return;
   const [snapC, snapP, snapPg] = await Promise.all([
@@ -89,54 +87,47 @@ async function cargarTodo() {
   pagos     = snapPg.docs.map(d => ({ id: d.id, ...d.data() }));
 }
 
-// ── Render principal ──────────────────────────────────────────────────
 function renderReporte() {
   const { desde, hasta } = getRango();
 
   document.getElementById('periodoLabel').textContent = etiquetaPeriodo(desde, hasta);
 
-  // Pagos dentro del rango
   const pagosFiltrados = pagos.filter(p => enRango(p.fecha, desde, hasta));
-
-  // Total recaudado en el período
   const totalRecaudado = pagosFiltrados.reduce((s, p) => s + Number(p.valor || 0), 0);
-
-  // Clientes que pagaron al menos una vez en el rango
   const clientesQuePageron = new Set(pagosFiltrados.map(p => p.clienteId));
-
-  // Préstamos activos
   const prestamosActivos = prestamos.filter(p => p.estado === 'Activo');
 
-  // Totales de préstamos activos
-  // totalCapitalMasIntereses = suma de p.total (capital + intereses) por cada préstamo activo
-  let totalMora                 = 0;
-  let totalCapitalMasIntereses  = 0;
+  let totalMora = 0;
 
-  prestamosActivos.forEach(p => {
-    // p.total ya contiene capital + intereses completos
-    totalCapitalMasIntereses += Number(p.total || 0);
+  // "Total prestado" = suma de (capital+intereses) de todos los préstamos activos
+  //                    MENOS todo lo que ya se ha cobrado en esos préstamos (sin filtro de fecha)
+  // → sube cuando creas un préstamo, baja cada vez que cobras una cuota
+  const totalPrestado = prestamosActivos.reduce((suma, p) => {
+    const cobrado = Array.isArray(p.cuotas)
+      ? p.cuotas
+          .filter(c => c.estado === 'pagada')
+          .reduce((s, c) => s + Number(c.valor || 0), 0)
+      : 0;
+
     if (Array.isArray(p.cuotas)) {
       totalMora += p.cuotas.filter(c => c.estado === 'mora').length;
     }
-  });
 
-  // Clientes con y sin pago en el rango
+    return suma + Math.max(0, Number(p.total || 0) - cobrado);
+  }, 0);
+
   const clientesConPago = clientes.filter(c => clientesQuePageron.has(c.id));
   const clientesSinPago = clientes.filter(c => !clientesQuePageron.has(c.id));
 
-  // Cuánto pagó cada cliente en el rango
   function montoPagadoPorCliente(clienteId) {
     return pagosFiltrados
       .filter(p => p.clienteId === clienteId)
       .reduce((s, p) => s + Number(p.valor || 0), 0);
   }
 
-  // ── HTML ─────────────────────────────────────────────────────────
   const cont = document.getElementById('reporteContenido');
 
   cont.innerHTML = `
-
-    <!-- STATS -->
     <div class="reporte-stats">
       <div class="reporte-stat-card verde">
         <div class="stat-label">Recaudado</div>
@@ -164,11 +155,10 @@ function renderReporte() {
       </div>
       <div class="reporte-stat-card ambar">
         <div class="stat-label">Total prestado</div>
-        <div class="stat-value">${formatearMoneda(totalCapitalMasIntereses)}</div>
+        <div class="stat-value">${formatearMoneda(totalPrestado)}</div>
       </div>
     </div>
 
-    <!-- CLIENTES QUE PAGARON -->
     <div class="card reporte-seccion">
       <h3>✅ Clientes que pagaron (${clientesConPago.length})</h3>
       ${clientesConPago.length === 0
@@ -189,7 +179,6 @@ function renderReporte() {
       }
     </div>
 
-    <!-- CLIENTES SIN PAGO -->
     <div class="card reporte-seccion">
       <h3>❌ Clientes sin pago (${clientesSinPago.length})</h3>
       ${clientesSinPago.length === 0
@@ -213,7 +202,6 @@ function renderReporte() {
       }
     </div>
 
-    <!-- DETALLE DE PAGOS -->
     <div class="card reporte-seccion">
       <h3>📋 Detalle de pagos del período</h3>
       ${pagosFiltrados.length === 0
@@ -248,7 +236,6 @@ function renderReporte() {
       }
     </div>
 
-    <!-- PRÉSTAMOS ACTIVOS Y SALDOS -->
     <div class="card reporte-seccion">
       <h3>💰 Préstamos activos y saldos</h3>
       ${prestamosActivos.length === 0
@@ -292,7 +279,6 @@ function renderReporte() {
   `;
 }
 
-// ── Control de período ────────────────────────────────────────────────
 window.setPeriodo = function(periodo) {
   periodoActivo = periodo;
   ['hoy', 'semana', 'mes', 'rango'].forEach(p => {
@@ -316,7 +302,6 @@ window.aplicarRango = function() {
   renderReporte();
 };
 
-// ── Auth & arranque ───────────────────────────────────────────────────
 onAuthChange(async user => {
   if (!user) {
     window.location.href = 'login.html';

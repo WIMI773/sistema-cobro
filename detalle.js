@@ -51,6 +51,20 @@ function getRawNumber(inputEl) {
 function aplicarFormatoInputCOP(inputId) {
   const input = document.getElementById(inputId);
   if (!input) return;
+  const clone = input.cloneNode(true);
+  input.parentNode.replaceChild(clone, input);
+  clone.addEventListener("input", function () {
+    const raw = this.value.replace(/\D/g, "");
+    this.dataset.rawValue = raw;
+    const num = parseInt(raw, 10);
+    this.value = isNaN(num) ? "" : num.toLocaleString("es-CO");
+  });
+}
+
+function iniciarFormatoModalMonto() {
+  const input = document.getElementById("modalPagoMonto");
+  if (!input || input.dataset.formatoAplicado) return;
+  input.dataset.formatoAplicado = "1";
   input.addEventListener("input", function () {
     const raw = this.value.replace(/\D/g, "");
     this.dataset.rawValue = raw;
@@ -107,18 +121,10 @@ function abrirTabPrestamo() {
 function sumarPeriodo(fecha, frecuencia, iteracion) {
   let f = new Date(fecha);
   switch (frecuencia) {
-    case "semanal":
-      f.setDate(f.getDate() + iteracion * 7);
-      break;
-    case "quincenal":
-      f.setDate(f.getDate() + iteracion * 15);
-      break;
-    case "mensual":
-      f.setMonth(f.getMonth() + iteracion);
-      break;
-    default:
-      f.setDate(f.getDate() + iteracion);
-      break;
+    case "semanal":   f.setDate(f.getDate() + iteracion * 7);  break;
+    case "quincenal": f.setDate(f.getDate() + iteracion * 15); break;
+    case "mensual":   f.setMonth(f.getMonth() + iteracion);    break;
+    default:          f.setDate(f.getDate() + iteracion);      break;
   }
   return f.toISOString().split("T")[0];
 }
@@ -149,10 +155,8 @@ function renderManualCuotasRows() {
       </div>
     `);
   }
-
   cont.innerHTML = rows.join("");
 
-  // Aplicar formato COP a cada input de valor manual
   cont.querySelectorAll(".manual-cuota-valor").forEach(input => {
     input.addEventListener("input", function () {
       const raw = this.value.replace(/\D/g, "");
@@ -164,62 +168,41 @@ function renderManualCuotasRows() {
 }
 
 async function cargarDatosUsuario() {
-  console.log('Detalle: cargando datos para clienteId=', clienteId, 'userId=', userId);
   const resultados = await Promise.allSettled([
-    cargarClientes(),
-    cargarPrestamos(),
-    cargarPagos()
+    cargarClientes(), cargarPrestamos(), cargarPagos()
   ]);
-
-  resultados.forEach((resultado, index) => {
-    const nombre = ['clientes', 'prestamos', 'pagos'][index];
-    if (resultado.status === 'rejected') {
-      console.error(`Error cargando ${nombre}:`, resultado.reason);
-    } else {
-      console.log(`${nombre} cargados:`, resultado.value);
-    }
+  resultados.forEach((r, i) => {
+    if (r.status === 'rejected')
+      console.error(`Error cargando ${ ['clientes','prestamos','pagos'][i] }:`, r.reason);
   });
 }
 
 async function cargarClientes() {
   if (!userId) return;
   try {
-    const consulta = query(collection(db, "clientes"), where("userId", "==", userId));
-    const snapshot = await getDocs(consulta);
-    clientes = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-  } catch (error) {
-    console.error('Error cargando clientes:', error);
-    clientes = [];
-  }
+    const snap = await getDocs(query(collection(db, "clientes"), where("userId", "==", userId)));
+    clientes = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  } catch(e) { console.error(e); clientes = []; }
 }
 
 async function cargarPrestamos() {
   if (!userId) return;
   try {
-    const consulta = query(collection(db, "prestamos"), where("userId", "==", userId));
-    const snapshot = await getDocs(consulta);
-    prestamos = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-  } catch (error) {
-    console.error('Error cargando prestamos:', error);
-    prestamos = [];
-  }
+    const snap = await getDocs(query(collection(db, "prestamos"), where("userId", "==", userId)));
+    prestamos = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  } catch(e) { console.error(e); prestamos = []; }
 }
 
 async function cargarPagos() {
   if (!userId) return;
   try {
-    const consulta = query(collection(db, "pagos"), where("userId", "==", userId));
-    const snapshot = await getDocs(consulta);
-    pagos = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-  } catch (error) {
-    console.error('Error cargando pagos:', error);
-    pagos = [];
-  }
+    const snap = await getDocs(query(collection(db, "pagos"), where("userId", "==", userId)));
+    pagos = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  } catch(e) { console.error(e); pagos = []; }
 }
 
 async function actualizarMoras() {
   if (!userId) return;
-
   let fechaHoy = hoy();
   let actualizaciones = [];
 
@@ -234,8 +217,9 @@ async function actualizarMoras() {
       }
     });
 
-    let faltantes = p.cuotas.filter(c => c.estado !== "pagada").length;
-    let nuevoEstado = faltantes === 0 ? "Pagado" : "Activo";
+    // Recalcular estado del préstamo en base a saldo real
+    const cobradoTotal = totalPagadoReal(p);
+    const nuevoEstado = cobradoTotal >= p.total ? "Pagado" : "Activo";
     if (nuevoEstado !== p.estado) {
       p.estado = nuevoEstado;
       cambió = true;
@@ -252,15 +236,15 @@ async function actualizarMoras() {
   }
 }
 
-function totalPagado(prestamo) {
-  if (!Array.isArray(prestamo.cuotas)) return 0;
-  return prestamo.cuotas
-    .filter(c => c.estado === "pagada")
-    .reduce((sum, c) => sum + c.valor, 0);
+// ─── Calcula lo realmente cobrado usando los registros de pagos ────────────
+// Usa valorPagado si existe (pago con monto editado), si no usa valor (cuota fija)
+function totalPagadoReal(prestamo) {
+  const pagosDelPrestamo = pagos.filter(pg => pg.prestamoId === prestamo.id);
+  return pagosDelPrestamo.reduce((sum, pg) => sum + Number(pg.valor || 0), 0);
 }
 
 function saldoPendiente(prestamo) {
-  return Math.round(prestamo.total - totalPagado(prestamo));
+  return Math.max(0, Math.round(prestamo.total - totalPagadoReal(prestamo)));
 }
 
 function cuotasEnMora(prestamo) {
@@ -273,36 +257,27 @@ function getCliente() {
 }
 
 function mostrarError(mensaje) {
-  let cont = document.getElementById("detalleContainer");
-  cont.innerHTML = `<div class="placeholder"><h2>Error</h2><p>${mensaje}</p><p style="margin-top:12px;color:#9ca3af;">clienteId=${clienteId || 'no definido'}</p></div>`;
+  document.getElementById("detalleContainer").innerHTML =
+    `<div class="placeholder"><h2>Error</h2><p>${mensaje}</p></div>`;
 }
 
 function mostrarCargando() {
-  let cont = document.getElementById("detalleContainer");
-  cont.innerHTML = `<div class="placeholder">Cargando información del cliente...<br><small style="color:#9ca3af;">clienteId=${clienteId || 'no definido'}</small></div>`;
+  document.getElementById("detalleContainer").innerHTML =
+    `<div class="placeholder">Cargando información del cliente...</div>`;
 }
 
 async function renderDetalleCliente() {
   let cont = document.getElementById("detalleContainer");
-  console.log('Detalle: renderDetalleCliente', { clienteId, clientesCount: clientes.length, prestamosCount: prestamos.length, pagosCount: pagos.length });
-  if (!clienteId) {
-    mostrarError("No se pudo identificar el cliente. Vuelve al panel principal y vuelve a intentarlo.");
-    return;
-  }
+  if (!clienteId) { mostrarError("No se pudo identificar el cliente."); return; }
   let cliente = getCliente();
-
-  if (!cliente) {
-    console.warn('Detalle: cliente no encontrado para clienteId=', clienteId, 'clientes=', clientes);
-    mostrarError("Cliente no encontrado. Vuelve al dashboard y selecciona otro cliente.");
-    return;
-  }
+  if (!cliente) { mostrarError("Cliente no encontrado."); return; }
 
   await actualizarMoras();
 
   let prestamosCliente = prestamos.filter(p => p.clienteId === clienteId);
-  let totalDeuda = prestamosCliente.reduce((sum, p) => sum + saldoPendiente(p), 0);
-  let totalPagadoCliente = prestamosCliente.reduce((sum, p) => sum + totalPagado(p), 0);
-  let totalMora = prestamosCliente.reduce((sum, p) => sum + cuotasEnMora(p), 0);
+  let totalDeuda         = prestamosCliente.reduce((s, p) => s + saldoPendiente(p), 0);
+  let totalPagadoCliente = prestamosCliente.reduce((s, p) => s + totalPagadoReal(p), 0);
+  let totalMora          = prestamosCliente.reduce((s, p) => s + cuotasEnMora(p), 0);
 
   if (!prestamoSeleccionadoId && prestamosCliente.length) {
     prestamoSeleccionadoId = prestamosCliente[0].id;
@@ -312,61 +287,57 @@ async function renderDetalleCliente() {
 
   let prestamosHTML = prestamosCliente.length
     ? prestamosCliente.map(p => {
-      let pagado = totalPagado(p);
-      let saldo = saldoPendiente(p);
-      let mora = cuotasEnMora(p);
-      let estado = p.estado === "Activo" ? "Activo" : "Pagado";
-      return `
-        <div class="loan-item ${p.id === prestamoSeleccionadoId ? 'loan-item-active' : ''}" onclick="seleccionarPrestamo('${p.id}')">
-          <div class="loan-item-main">
-            <div>
-              <div class="loan-item-title">Préstamo #${p.id}</div>
-              <div class="loan-item-meta">Monto ${formatCOP(p.monto)} · Total ${formatCOP(p.total)} · Pagado ${formatCOP(pagado)} · Saldo ${formatCOP(saldo)}</div>
+        let pagado = totalPagadoReal(p);
+        let saldo  = saldoPendiente(p);
+        let mora   = cuotasEnMora(p);
+        let estado = p.estado === "Activo" ? "Activo" : "Pagado";
+        return `
+          <div class="loan-item ${p.id === prestamoSeleccionadoId ? 'loan-item-active' : ''}" onclick="seleccionarPrestamo('${p.id}')">
+            <div class="loan-item-main">
+              <div>
+                <div class="loan-item-title">Préstamo #${p.id}</div>
+                <div class="loan-item-meta">Monto ${formatCOP(p.monto)} · Total ${formatCOP(p.total)} · Pagado ${formatCOP(pagado)} · Saldo ${formatCOP(saldo)}</div>
+              </div>
+              <span class="badge ${mora > 0 ? 'mora' : ''}">${estado}</span>
             </div>
-            <span class="badge ${mora > 0 ? 'mora' : ''}">${estado}</span>
+            <div class="loan-item-grid">
+              <div><strong>Cuotas</strong><span>${p.numeroCuotas}</span></div>
+              <div><strong>Mora</strong><span>${mora}</span></div>
+              <div><strong>Interés</strong><span>${p.interes}%</span></div>
+            </div>
+            <div class="loan-item-actions">
+              <button class="small btn-secondary" onclick="event.stopPropagation(); seleccionarPrestamo('${p.id}')">Ver</button>
+              <button class="small" onclick="event.stopPropagation(); pagarCuota('${p.id}')">Pagar cuota</button>
+              <button class="small btn-danger" onclick="event.stopPropagation(); eliminarPrestamo('${p.id}')">Eliminar préstamo</button>
+            </div>
           </div>
-          <div class="loan-item-grid">
-            <div><strong>Cuotas</strong><span>${p.numeroCuotas}</span></div>
-            <div><strong>Mora</strong><span>${mora}</span></div>
-            <div><strong>Interés</strong><span>${p.interes}%</span></div>
-          </div>
-          <div class="loan-item-actions">
-            <button class="small btn-secondary" onclick="event.stopPropagation(); seleccionarPrestamo('${p.id}')">Ver</button>
-            <button class="small" onclick="event.stopPropagation(); pagarCuota('${p.id}')">Pagar cuota</button>
-            <button class="small btn-danger" onclick="event.stopPropagation(); eliminarPrestamo('${p.id}')">Eliminar préstamo</button>
-          </div>
-        </div>
-      `;
-    }).join("")
+        `;
+      }).join("")
     : `<div class="placeholder">No hay préstamos para este cliente.</div>`;
 
   let pagosCliente = selectedLoan
     ? pagos.filter(pg => pg.prestamoId === selectedLoan.id)
     : pagos.filter(pg => pg.clienteId === clienteId);
+
   let pagosHTML = pagosCliente.length
     ? pagosCliente.map(pg => `
-      <tr>
-        <td>${pg.cuotaNumero}</td>
-        <td>${formatCOP(pg.valor)}</td>
-        <td>${pg.fecha}</td>
-      </tr>
-    `).join("")
+        <tr>
+          <td>${pg.cuotaNumero}</td>
+          <td>${formatCOP(pg.valor)}</td>
+          <td>${pg.fecha}</td>
+        </tr>
+      `).join("")
     : `<tr><td colspan="3">No hay pagos registrados.</td></tr>`;
 
-  const telefonoCliente = cliente.telefono ? cliente.telefono.trim() : "";
-  const whatsappDigits = telefonoCliente.replace(/\D/g, "");
-  const tieneTelefono = telefonoCliente.length > 0;
-  const tieneWhatsApp = whatsappDigits.length > 0;
+  const telefonoCliente  = cliente.telefono ? cliente.telefono.trim() : "";
+  const whatsappDigits   = telefonoCliente.replace(/\D/g, "");
+  const tieneTelefono    = telefonoCliente.length > 0;
   const accionesContacto = tieneTelefono ? `
     <div class="profile-actions">
       <a class="action-button" href="tel:${encodeURIComponent(telefonoCliente)}">Llamar</a>
-      ${tieneWhatsApp ? `<a class="action-button secondary" href="https://wa.me/${whatsappDigits}" target="_blank" rel="noopener">WhatsApp</a>` : ``}
+      ${whatsappDigits ? `<a class="action-button secondary" href="https://wa.me/${whatsappDigits}" target="_blank" rel="noopener">WhatsApp</a>` : ""}
     </div>
-  ` : `
-    <div class="profile-actions">
-      <span class="help-text">Teléfono no disponible</span>
-    </div>
-  `;
+  ` : `<div class="profile-actions"><span class="help-text">Teléfono no disponible</span></div>`;
 
   let selectedLoanSummaryHTML = selectedLoan
     ? `<div class="stats-card"><span class="badge">Monto préstamo</span><strong>${formatCOP(selectedLoan.monto)}</strong></div>`
@@ -376,7 +347,7 @@ async function renderDetalleCliente() {
     <div class="loan-card pay-card">
       <h3>Pagar próxima cuota</h3>
       <p class="help-text">Préstamo #${selectedLoan.id} — saldo ${formatCOP(saldoPendiente(selectedLoan))}.</p>
-      <button onclick="pagarCuota('${selectedLoan.id}')">Pagar cuota manual</button>
+      <button onclick="pagarCuota('${selectedLoan.id}')">Pagar cuota</button>
     </div>
   ` : `
     <div class="loan-card pay-card">
@@ -415,25 +386,15 @@ async function renderDetalleCliente() {
 
       <div class="loan-card">
         <h3>Préstamos de ${cliente.nombre}</h3>
-        <div class="loan-list">
-          ${prestamosHTML}
-        </div>
+        <div class="loan-list">${prestamosHTML}</div>
       </div>
 
       <div class="payment-history card">
         <h3>Historial de pagos</h3>
         <div class="table-container">
           <table>
-            <thead>
-              <tr>
-                <th>N° cuota</th>
-                <th>Valor</th>
-                <th>Fecha</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${pagosHTML}
-            </tbody>
+            <thead><tr><th>N° cuota</th><th>Valor</th><th>Fecha</th></tr></thead>
+            <tbody>${pagosHTML}</tbody>
           </table>
         </div>
       </div>
@@ -462,18 +423,18 @@ async function renderDetalleCliente() {
         <div id="manualCuotasSection" class="hidden">
           <button type="button" class="small btn-secondary" onclick="renderManualCuotasRows()">Generar filas de cuotas manuales</button>
           <div id="manualCuotasRows" class="manual-cuotas-grid"></div>
-          <p class="help-text">Inserta fecha y valor para cada cuota. Si cambias el número de cuotas, pulsa el botón de nuevo.</p>
+          <p class="help-text">Inserta fecha y valor para cada cuota.</p>
         </div>
         <button onclick="crearPrestamoCliente()">Crear préstamo</button>
         <button type="button" class="btn-secondary small" onclick="setDetalleTab('info')">Volver a información</button>
-        <p class="help-text">El sistema calcula automáticamente la fecha de las cuotas según la frecuencia elegida. Si quieres, puedes ingresar el valor de cada cuota manualmente con el campo Valor cuota.</p>
+        <p class="help-text">El sistema calcula automáticamente la fecha de las cuotas según la frecuencia elegida.</p>
       </div>
     </div>
   `;
 
-  // Aplicar formato COP a los inputs de dinero después de renderizar
   aplicarFormatoInputCOP("monto");
   aplicarFormatoInputCOP("valorCuota");
+  iniciarFormatoModalMonto();
 }
 
 function seleccionarPrestamo(id) {
@@ -484,99 +445,76 @@ function seleccionarPrestamo(id) {
 async function crearPrestamoCliente() {
   if (!clienteId || !userId) return;
 
-  const montoEl = document.getElementById("monto");
+  const montoEl     = document.getElementById("monto");
   const valorCuotaEl = document.getElementById("valorCuota");
 
-  let monto = getRawNumber(montoEl);
-  let interes = parseFloat(document.getElementById("interes").value);
+  let monto          = getRawNumber(montoEl);
+  let interes        = parseFloat(document.getElementById("interes").value);
   let valorCuotaInput = getRawNumber(valorCuotaEl);
-  let numCuotas = parseInt(document.getElementById("cuotas").value, 10);
-  let frecuencia = document.getElementById("frecuencia").value;
+  let numCuotas      = parseInt(document.getElementById("cuotas").value, 10);
+  let frecuencia     = document.getElementById("frecuencia").value;
 
   if (isNaN(monto) || isNaN(interes) || isNaN(numCuotas) || monto <= 0 || numCuotas <= 0) {
     mostrarNotificacion("Complete todos los datos correctamente.", "error");
     return;
   }
 
-  let total = Math.round(monto + (monto * interes / 100));
+  let total          = Math.round(monto + (monto * interes / 100));
   let valorCuotaBase = Math.floor(total / numCuotas);
-  let resto = total - valorCuotaBase * numCuotas;
-  let fechaInicio = hoy();
+  let resto          = total - valorCuotaBase * numCuotas;
+  let fechaInicio    = hoy();
   let valorCuotaManual = !isNaN(valorCuotaInput) && valorCuotaInput > 0;
 
   let listaCuotas = [];
+
   if (frecuencia === "manual") {
     let rows = Array.from(document.querySelectorAll("#manualCuotasRows .manual-cuota-row"));
     if (rows.length !== numCuotas) {
-      mostrarNotificacion(`Debes generar y completar exactamente ${numCuotas} cuotas manuales.`, "error");
+      mostrarNotificacion(`Debes generar exactamente ${numCuotas} cuotas manuales.`, "error");
       return;
     }
-
-    for (let index = 0; index < rows.length; index++) {
-      let row = rows[index];
-      let fecha = row.querySelector(".manual-cuota-fecha")?.value?.trim();
-      const valorEl = row.querySelector(".manual-cuota-valor");
-      let valor = parseFloat((valorEl?.dataset?.rawValue || valorEl?.value || "").replace(/\D/g, ""));
-
+    for (let i = 0; i < rows.length; i++) {
+      let fecha  = rows[i].querySelector(".manual-cuota-fecha")?.value?.trim();
+      const vEl  = rows[i].querySelector(".manual-cuota-valor");
+      let valor  = parseFloat((vEl?.dataset?.rawValue || vEl?.value || "").replace(/\D/g, ""));
       if (!fecha || isNaN(new Date(fecha).getTime())) {
-        mostrarNotificacion(`Fecha inválida en la cuota ${index + 1}. Usa YYYY-MM-DD.`, "error");
-        return;
+        mostrarNotificacion(`Fecha inválida en cuota ${i + 1}.`, "error"); return;
       }
       if (isNaN(valor) || valor <= 0) {
-        mostrarNotificacion(`Valor de cuota inválido en la cuota ${index + 1}.`, "error");
-        return;
+        mostrarNotificacion(`Valor inválido en cuota ${i + 1}.`, "error"); return;
       }
-
-      listaCuotas.push({
-        numero: index + 1,
-        fecha,
-        valor,
-        estado: "pendiente"
-      });
+      listaCuotas.push({ numero: i + 1, fecha, valor, estado: "pendiente" });
     }
-
-    total = listaCuotas.reduce((sum, cuota) => sum + cuota.valor, 0);
+    total       = listaCuotas.reduce((s, c) => s + c.valor, 0);
     fechaInicio = listaCuotas[0]?.fecha || fechaInicio;
   } else {
-    if (valorCuotaManual) {
-      total = valorCuotaInput * numCuotas;
-    }
-
+    if (valorCuotaManual) total = valorCuotaInput * numCuotas;
     for (let i = 0; i < numCuotas; i++) {
-      let valorCuota = valorCuotaManual ? valorCuotaInput : valorCuotaBase;
-      if (!valorCuotaManual && i === numCuotas - 1) {
-        valorCuota += resto;
-      }
+      let vc = valorCuotaManual ? valorCuotaInput : valorCuotaBase;
+      if (!valorCuotaManual && i === numCuotas - 1) vc += resto;
       listaCuotas.push({
         numero: i + 1,
         fecha: sumarPeriodo(fechaInicio, frecuencia, i),
-        valor: valorCuota,
+        valor: vc,
         estado: "pendiente"
       });
     }
   }
 
   const prestamo = {
-    clienteId,
-    monto,
-    interes,
-    total,
-    numeroCuotas: numCuotas,
-    frecuencia,
-    fechaInicio,
-    estado: "Activo",
-    cuotas: listaCuotas,
-    userId
+    clienteId, monto, interes, total,
+    numeroCuotas: numCuotas, frecuencia, fechaInicio,
+    estado: "Activo", cuotas: listaCuotas, userId
   };
 
   const prestamoId = Date.now().toString();
   await setDoc(doc(db, "prestamos", prestamoId), prestamo);
   prestamos.push({ id: prestamoId, ...prestamo });
 
-  document.getElementById("monto").value = "";
-  document.getElementById("interes").value = "";
-  document.getElementById("cuotas").value = "";
-  document.getElementById("valorCuota").value = "";
+  ["monto","interes","cuotas","valorCuota"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = "";
+  });
 
   prestamoSeleccionadoId = prestamoId;
   await cargarPrestamos();
@@ -585,16 +523,14 @@ async function crearPrestamoCliente() {
 
 async function pagarCuota(prestamoId) {
   let prestamo = prestamos.find(p => p.id === prestamoId);
-  if (!prestamo) {
-    mostrarNotificacion("Préstamo no encontrado.", "error");
-    return;
-  }
+  if (!prestamo) { mostrarNotificacion("Préstamo no encontrado.", "error"); return; }
 
   await actualizarMoras();
 
-  let cuota = prestamo.cuotas.find(c => c.estado === "mora" || c.estado === "pendiente");
-  if (!cuota) {
-    mostrarNotificacion("No hay cuotas pendientes.", "warning");
+  // Verificar si ya está completamente pagado por saldo real
+  const saldo = saldoPendiente(prestamo);
+  if (saldo <= 0) {
+    mostrarNotificacion("Este préstamo ya está completamente pagado.", "warning");
     prestamo.estado = "Pagado";
     await setDoc(doc(db, "prestamos", prestamo.id), prestamo);
     await cargarPrestamos();
@@ -602,11 +538,29 @@ async function pagarCuota(prestamoId) {
     return;
   }
 
-  pagoModalPrestamoId = prestamo.id;
-  pagoModalCuotaNumero = cuota.numero;
-  document.getElementById("modalPagoTitle").textContent = `Pagar cuota #${cuota.numero}`;
-  document.getElementById("modalPagoTexto").textContent = `Monto: ${formatCOP(cuota.valor)}. Vencimiento: ${cuota.fecha}`;
+  // Buscar la próxima cuota no pagada para mostrar info de referencia
+  let cuota = prestamo.cuotas.find(c => c.estado === "mora" || c.estado === "pendiente");
+
+  pagoModalPrestamoId  = prestamo.id;
+  pagoModalCuotaNumero = cuota ? cuota.numero : null;
+
+  document.getElementById("modalPagoTitle").textContent =
+    cuota ? `Pagar cuota #${cuota.numero}` : "Registrar pago";
+
+  document.getElementById("modalPagoTexto").textContent =
+    cuota
+      ? `Cuota fija: ${formatCOP(cuota.valor)} — Saldo total pendiente: ${formatCOP(saldo)}`
+      : `Saldo total pendiente: ${formatCOP(saldo)}`;
+
   document.getElementById("modalPagoFecha").value = hoy();
+
+  // Precargar con el valor de la cuota fija, pero editable libremente
+  const montoInput = document.getElementById("modalPagoMonto");
+  const valorSugerido = cuota ? cuota.valor : saldo;
+  montoInput.dataset.rawValue = String(valorSugerido);
+  montoInput.value = Number(valorSugerido).toLocaleString("es-CO");
+
+  iniciarFormatoModalMonto();
   abrirModalPago();
 }
 
@@ -614,15 +568,15 @@ async function eliminarPrestamo(prestamoId) {
   if (!confirm("¿Eliminar este préstamo?")) return;
 
   await deleteDoc(doc(db, "prestamos", prestamoId));
-  await Promise.all(pagos
-    .filter(pg => pg.prestamoId === prestamoId)
-    .map(pg => deleteDoc(doc(db, "pagos", pg.id))));
+  await Promise.all(
+    pagos.filter(pg => pg.prestamoId === prestamoId)
+         .map(pg => deleteDoc(doc(db, "pagos", pg.id)))
+  );
 
   prestamos = prestamos.filter(p => p.id !== prestamoId);
-  pagos = pagos.filter(pg => pg.prestamoId !== prestamoId);
-  if (prestamoSeleccionadoId === prestamoId) {
-    prestamoSeleccionadoId = null;
-  }
+  pagos     = pagos.filter(pg => pg.prestamoId !== prestamoId);
+  if (prestamoSeleccionadoId === prestamoId) prestamoSeleccionadoId = null;
+
   mostrarNotificacion("Préstamo eliminado.", "success");
   await cargarPrestamos();
   await cargarPagos();
@@ -632,38 +586,77 @@ async function eliminarPrestamo(prestamoId) {
 async function confirmarPagoCuota() {
   let fechaPago = document.getElementById("modalPagoFecha").value.trim();
   if (!fechaPago || isNaN(new Date(fechaPago).getTime())) {
-    mostrarNotificacion("Fecha inválida. Usa el formato YYYY-MM-DD.", "error");
-    return;
+    mostrarNotificacion("Fecha inválida.", "error"); return;
+  }
+
+  const montoInput  = document.getElementById("modalPagoMonto");
+  const montoRaw    = (montoInput.dataset.rawValue || montoInput.value).replace(/\D/g, "");
+  const montoPagado = parseFloat(montoRaw);
+
+  if (isNaN(montoPagado) || montoPagado <= 0) {
+    mostrarNotificacion("Ingresa un monto válido.", "error"); return;
   }
 
   let prestamo = prestamos.find(p => p.id === pagoModalPrestamoId);
   if (!prestamo) {
-    cerrarModalPago();
-    mostrarNotificacion("Préstamo no encontrado.", "error");
+    cerrarModalPago(); mostrarNotificacion("Préstamo no encontrado.", "error"); return;
+  }
+
+  const saldoActual = saldoPendiente(prestamo);
+  if (montoPagado > saldoActual) {
+    mostrarNotificacion(`El monto (${formatCOP(montoPagado)}) supera el saldo pendiente (${formatCOP(saldoActual)}).`, "error");
     return;
   }
 
-  let cuota = prestamo.cuotas.find(c => c.numero === pagoModalCuotaNumero);
-  if (!cuota) {
-    cerrarModalPago();
-    mostrarNotificacion("Cuota no encontrada.", "error");
-    return;
+  // ── Distribuir el monto pagado entre las cuotas pendientes ────────────
+  // El monto se distribuye desde la cuota más antigua hacia adelante.
+  // Si paga más de la cuota fija, la cuota queda pagada y el excedente
+  // va a la siguiente. Si paga menos, la cuota queda marcada como "parcial".
+  let restoPago = montoPagado;
+  let cuotasActualizadas = [...prestamo.cuotas];
+
+  for (let i = 0; i < cuotasActualizadas.length && restoPago > 0; i++) {
+    const c = cuotasActualizadas[i];
+    if (c.estado === "pagada") continue;
+
+    const yaAbonado  = Number(c.abonado || 0);
+    const faltaCuota = c.valor - yaAbonado;
+
+    if (restoPago >= faltaCuota) {
+      // Cubre esta cuota completa
+      cuotasActualizadas[i] = {
+        ...c,
+        estado: "pagada",
+        fechaPago,
+        abonado: c.valor
+      };
+      restoPago -= faltaCuota;
+    } else {
+      // Pago parcial de esta cuota
+      cuotasActualizadas[i] = {
+        ...c,
+        estado: "parcial",
+        abonado: yaAbonado + restoPago
+      };
+      restoPago = 0;
+    }
   }
 
-  cuota.estado = "pagada";
-  cuota.fechaPago = fechaPago;
+  prestamo.cuotas = cuotasActualizadas;
 
-  let faltantes = prestamo.cuotas.filter(c => c.estado !== "pagada").length;
-  if (faltantes === 0) {
+  // Recalcular estado del préstamo con el nuevo pago incluido
+  const totalCobradoTrasEste = totalPagadoReal(prestamo) + montoPagado;
+  if (totalCobradoTrasEste >= prestamo.total) {
     prestamo.estado = "Pagado";
   }
 
+  // Guardar pago real en colección pagos
   const pago = {
-    prestamoId: prestamo.id,
-    clienteId: prestamo.clienteId,
-    cuotaNumero: cuota.numero,
-    valor: cuota.valor,
-    fecha: fechaPago,
+    prestamoId:  prestamo.id,
+    clienteId:   prestamo.clienteId,
+    cuotaNumero: pagoModalCuotaNumero,
+    valor:       montoPagado,
+    fecha:       fechaPago,
     userId
   };
 
@@ -674,32 +667,27 @@ async function confirmarPagoCuota() {
   await cargarPrestamos();
   await cargarPagos();
   renderDetalleCliente();
-  mostrarNotificacion("Pago registrado correctamente.", "success");
+  mostrarNotificacion(`Pago de ${formatCOP(montoPagado)} registrado correctamente.`, "success");
 }
 
-window.seleccionarPrestamo = seleccionarPrestamo;
+window.seleccionarPrestamo  = seleccionarPrestamo;
 window.crearPrestamoCliente = crearPrestamoCliente;
-window.pagarCuota = pagarCuota;
-window.eliminarPrestamo = eliminarPrestamo;
-window.toggleManual = toggleManual;
+window.pagarCuota           = pagarCuota;
+window.eliminarPrestamo     = eliminarPrestamo;
+window.toggleManual         = toggleManual;
 window.renderManualCuotasRows = renderManualCuotasRows;
-window.confirmarPagoCuota = confirmarPagoCuota;
-window.abrirModalPago = abrirModalPago;
-window.cerrarModalPago = cerrarModalPago;
-window.setDetalleTab = setDetalleTab;
-window.abrirTabPrestamo = abrirTabPrestamo;
+window.confirmarPagoCuota   = confirmarPagoCuota;
+window.abrirModalPago       = abrirModalPago;
+window.cerrarModalPago      = cerrarModalPago;
+window.setDetalleTab        = setDetalleTab;
+window.abrirTabPrestamo     = abrirTabPrestamo;
 
 onAuthChange(async user => {
-  if (!user) {
-    window.location.href = "login.html";
-    return;
-  }
+  if (!user) { window.location.href = "login.html"; return; }
 
   userId = user.uid;
   const usuarioEmail = document.getElementById("usuarioEmail");
-  if (usuarioEmail) {
-    usuarioEmail.textContent = user.email || "";
-  }
+  if (usuarioEmail) usuarioEmail.textContent = user.email || "";
 
   const logoutButton = document.getElementById("logoutButton");
   if (logoutButton) {
