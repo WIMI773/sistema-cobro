@@ -74,6 +74,18 @@ function iniciarFormatoModalMonto() {
 }
 // ──────────────────────────────────────────────────────────────────────────
 
+function hoy() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+// Suma un día a una fecha YYYY-MM-DD
+function diaSiguiente(fechaStr) {
+  const d = new Date(fechaStr + "T00:00:00");
+  d.setDate(d.getDate() + 1);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
 function mostrarNotificacion(mensaje, tipo = "info") {
   let toast = document.getElementById("toast");
   if (!toast) return;
@@ -101,14 +113,6 @@ function cerrarModalPago() {
   pagoModalCuotaNumero = null;
 }
 
-function hoy() {
-  const d = new Date();
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, '0');
-  const dd = String(d.getDate()).padStart(2, '0');
-  return `${yyyy}-${mm}-${dd}`;
-}
-
 function setDetalleTab(tab) {
   detalleTab = tab;
   renderDetalleCliente();
@@ -119,14 +123,14 @@ function abrirTabPrestamo() {
 }
 
 function sumarPeriodo(fecha, frecuencia, iteracion) {
-  let f = new Date(fecha);
+  let f = new Date(fecha + "T00:00:00");
   switch (frecuencia) {
     case "semanal":   f.setDate(f.getDate() + iteracion * 7);  break;
     case "quincenal": f.setDate(f.getDate() + iteracion * 15); break;
     case "mensual":   f.setMonth(f.getMonth() + iteracion);    break;
     default:          f.setDate(f.getDate() + iteracion);      break;
   }
-  return f.toISOString().split("T")[0];
+  return `${f.getFullYear()}-${String(f.getMonth()+1).padStart(2,'0')}-${String(f.getDate()).padStart(2,'0')}`;
 }
 
 function toggleManual(valor) {
@@ -236,8 +240,9 @@ async function actualizarMoras() {
 }
 
 function totalPagadoReal(prestamo) {
-  const pagosDelPrestamo = pagos.filter(pg => pg.prestamoId === prestamo.id);
-  return pagosDelPrestamo.reduce((sum, pg) => sum + Number(pg.valor || 0), 0);
+  return pagos
+    .filter(pg => pg.prestamoId === prestamo.id)
+    .reduce((sum, pg) => sum + Number(pg.valor || 0), 0);
 }
 
 function saldoPendiente(prestamo) {
@@ -263,22 +268,16 @@ function mostrarCargando() {
     `<div class="placeholder">Cargando información del cliente...</div>`;
 }
 
-// ─── Genera el enlace de WhatsApp con mensaje de recordatorio ─────────────
 function generarEnlaceWhatsApp(cliente, prestamosCliente) {
   const whatsappDigits = (cliente.telefono || "").replace(/\D/g, "");
   if (!whatsappDigits) return null;
 
-  // Buscar próxima cuota pendiente o en mora
   let proximaCuota = null;
   let prestamoConCuota = null;
   for (const p of prestamosCliente) {
     if (p.estado !== "Activo") continue;
     const cuota = p.cuotas?.find(c => c.estado === "mora" || c.estado === "pendiente" || c.estado === "parcial");
-    if (cuota) {
-      proximaCuota = cuota;
-      prestamoConCuota = p;
-      break;
-    }
+    if (cuota) { proximaCuota = cuota; prestamoConCuota = p; break; }
   }
 
   const saldoTotal = prestamosCliente.reduce((s, p) => s + saldoPendiente(p), 0);
@@ -287,24 +286,17 @@ function generarEnlaceWhatsApp(cliente, prestamosCliente) {
   let mensaje = `Hola ${cliente.nombre} 👋, le recordamos que tiene un saldo pendiente con nosotros.\n\n`;
 
   if (proximaCuota && prestamoConCuota) {
-    // Formatear fecha de vencimiento legible
     const [y, m, d] = proximaCuota.fecha.split("-");
-    const fechaLegible = `${d}/${m}/${y}`;
     mensaje += `📋 *Próxima cuota:* ${formatCOP(proximaCuota.valor)}\n`;
-    mensaje += `📅 *Vencimiento:* ${fechaLegible}\n`;
+    mensaje += `📅 *Vencimiento:* ${d}/${m}/${y}\n`;
   }
 
   mensaje += `💰 *Saldo total pendiente:* ${formatCOP(saldoTotal)}\n`;
-
-  if (mora > 0) {
-    mensaje += `⚠️ *Cuotas en mora:* ${mora}\n`;
-  }
-
+  if (mora > 0) mensaje += `⚠️ *Cuotas en mora:* ${mora}\n`;
   mensaje += `\nPor favor realice su pago a la mayor brevedad posible. ¡Gracias! 🙏`;
 
   return `https://wa.me/${whatsappDigits}?text=${encodeURIComponent(mensaje)}`;
 }
-// ─────────────────────────────────────────────────────────────────────────
 
 async function renderDetalleCliente() {
   let cont = document.getElementById("detalleContainer");
@@ -371,9 +363,7 @@ async function renderDetalleCliente() {
 
   const telefonoCliente = cliente.telefono ? cliente.telefono.trim() : "";
   const tieneTelefono   = telefonoCliente.length > 0;
-
-  // Generar enlace WhatsApp con mensaje de recordatorio
-  const enlaceWhatsApp = generarEnlaceWhatsApp(cliente, prestamosCliente);
+  const enlaceWhatsApp  = generarEnlaceWhatsApp(cliente, prestamosCliente);
 
   const accionesContacto = tieneTelefono ? `
     <div class="profile-actions">
@@ -463,6 +453,13 @@ async function renderDetalleCliente() {
             <option value="manual">Manual</option>
           </select>
         </div>
+        <div class="field-grid">
+          <div>
+            <label style="font-size:0.82rem;color:#6b7280;font-weight:600;display:block;margin-bottom:4px;">Fecha del préstamo</label>
+            <input type="date" id="fechaPrestamo" value="${hoy()}" />
+            <small style="color:#9ca3af;font-size:0.75rem;">La primera cuota se cobra al día siguiente de esta fecha.</small>
+          </div>
+        </div>
         <div id="manualCuotasSection" class="hidden">
           <button type="button" class="small btn-secondary" onclick="renderManualCuotasRows()">Generar filas de cuotas manuales</button>
           <div id="manualCuotasRows" class="manual-cuotas-grid"></div>
@@ -470,7 +467,7 @@ async function renderDetalleCliente() {
         </div>
         <button onclick="crearPrestamoCliente()">Crear préstamo</button>
         <button type="button" class="btn-secondary small" onclick="setDetalleTab('info')">Volver a información</button>
-        <p class="help-text">El sistema calcula automáticamente la fecha de las cuotas según la frecuencia elegida.</p>
+        <p class="help-text">Las cuotas se generan automáticamente desde el día siguiente a la fecha del préstamo.</p>
       </div>
     </div>
   `;
@@ -497,24 +494,32 @@ async function crearPrestamoCliente() {
   let numCuotas       = parseInt(document.getElementById("cuotas").value, 10);
   let frecuencia      = document.getElementById("frecuencia").value;
 
+  // Fecha del préstamo ingresada por el usuario (por defecto hoy)
+  const fechaPrestamoInput = document.getElementById("fechaPrestamo");
+  const fechaPrestamo = fechaPrestamoInput?.value?.trim() || hoy();
+
+  if (!fechaPrestamo || isNaN(new Date(fechaPrestamo).getTime())) {
+    mostrarNotificacion("La fecha del préstamo no es válida.", "error"); return;
+  }
+
   if (isNaN(monto) || isNaN(interes) || isNaN(numCuotas) || monto <= 0 || numCuotas <= 0) {
-    mostrarNotificacion("Complete todos los datos correctamente.", "error");
-    return;
+    mostrarNotificacion("Complete todos los datos correctamente.", "error"); return;
   }
 
   let total           = Math.round(monto + (monto * interes / 100));
   let valorCuotaBase  = Math.floor(total / numCuotas);
   let resto           = total - valorCuotaBase * numCuotas;
-  let fechaInicio     = hoy();
   let valorCuotaManual = !isNaN(valorCuotaInput) && valorCuotaInput > 0;
+
+  // La primera cuota siempre es al DÍA SIGUIENTE de la fecha del préstamo
+  const fechaPrimeraCuota = diaSiguiente(fechaPrestamo);
 
   let listaCuotas = [];
 
   if (frecuencia === "manual") {
     let rows = Array.from(document.querySelectorAll("#manualCuotasRows .manual-cuota-row"));
     if (rows.length !== numCuotas) {
-      mostrarNotificacion(`Debes generar exactamente ${numCuotas} cuotas manuales.`, "error");
-      return;
+      mostrarNotificacion(`Debes generar exactamente ${numCuotas} cuotas manuales.`, "error"); return;
     }
     for (let i = 0; i < rows.length; i++) {
       let fecha = rows[i].querySelector(".manual-cuota-fecha")?.value?.trim();
@@ -528,8 +533,7 @@ async function crearPrestamoCliente() {
       }
       listaCuotas.push({ numero: i + 1, fecha, valor, estado: "pendiente" });
     }
-    total       = listaCuotas.reduce((s, c) => s + c.valor, 0);
-    fechaInicio = listaCuotas[0]?.fecha || fechaInicio;
+    total = listaCuotas.reduce((s, c) => s + c.valor, 0);
   } else {
     if (valorCuotaManual) total = valorCuotaInput * numCuotas;
     for (let i = 0; i < numCuotas; i++) {
@@ -537,7 +541,7 @@ async function crearPrestamoCliente() {
       if (!valorCuotaManual && i === numCuotas - 1) vc += resto;
       listaCuotas.push({
         numero: i + 1,
-        fecha: sumarPeriodo(fechaInicio, frecuencia, i),
+        fecha: sumarPeriodo(fechaPrimeraCuota, frecuencia, i),
         valor: vc,
         estado: "pendiente"
       });
@@ -546,7 +550,9 @@ async function crearPrestamoCliente() {
 
   const prestamo = {
     clienteId, monto, interes, total,
-    numeroCuotas: numCuotas, frecuencia, fechaInicio,
+    numeroCuotas: numCuotas, frecuencia,
+    fechaPrestamo,          // fecha en que se hizo el préstamo
+    fechaInicio: fechaPrimeraCuota, // fecha de la primera cuota (día siguiente)
     estado: "Activo", cuotas: listaCuotas, userId
   };
 
@@ -558,10 +564,12 @@ async function crearPrestamoCliente() {
     const el = document.getElementById(id);
     if (el) el.value = "";
   });
+  if (fechaPrestamoInput) fechaPrestamoInput.value = hoy();
 
   prestamoSeleccionadoId = prestamoId;
   await cargarPrestamos();
   renderDetalleCliente();
+  mostrarNotificacion("Préstamo creado. Primera cuota: " + fechaPrimeraCuota, "success");
 }
 
 async function pagarCuota(prestamoId) {
@@ -587,12 +595,10 @@ async function pagarCuota(prestamoId) {
 
   document.getElementById("modalPagoTitle").textContent =
     cuota ? `Pagar cuota #${cuota.numero}` : "Registrar pago";
-
   document.getElementById("modalPagoTexto").textContent =
     cuota
       ? `Cuota fija: ${formatCOP(cuota.valor)} — Saldo total pendiente: ${formatCOP(saldo)}`
       : `Saldo total pendiente: ${formatCOP(saldo)}`;
-
   document.getElementById("modalPagoFecha").value = hoy();
 
   const montoInput = document.getElementById("modalPagoMonto");
@@ -654,10 +660,8 @@ async function confirmarPagoCuota() {
   for (let i = 0; i < cuotasActualizadas.length && restoPago > 0; i++) {
     const c = cuotasActualizadas[i];
     if (c.estado === "pagada") continue;
-
     const yaAbonado  = Number(c.abonado || 0);
     const faltaCuota = c.valor - yaAbonado;
-
     if (restoPago >= faltaCuota) {
       cuotasActualizadas[i] = { ...c, estado: "pagada", fechaPago, abonado: c.valor };
       restoPago -= faltaCuota;
@@ -670,17 +674,12 @@ async function confirmarPagoCuota() {
   prestamo.cuotas = cuotasActualizadas;
 
   const totalCobradoTrasEste = totalPagadoReal(prestamo) + montoPagado;
-  if (totalCobradoTrasEste >= prestamo.total) {
-    prestamo.estado = "Pagado";
-  }
+  if (totalCobradoTrasEste >= prestamo.total) prestamo.estado = "Pagado";
 
   const pago = {
-    prestamoId:  prestamo.id,
-    clienteId:   prestamo.clienteId,
-    cuotaNumero: pagoModalCuotaNumero,
-    valor:       montoPagado,
-    fecha:       fechaPago,
-    userId
+    prestamoId: prestamo.id, clienteId: prestamo.clienteId,
+    cuotaNumero: pagoModalCuotaNumero, valor: montoPagado,
+    fecha: fechaPago, userId
   };
 
   await setDoc(doc(db, "pagos", Date.now().toString()), pago);
@@ -707,19 +706,13 @@ window.abrirTabPrestamo       = abrirTabPrestamo;
 
 onAuthChange(async user => {
   if (!user) { window.location.href = "login.html"; return; }
-
   userId = user.uid;
   const usuarioEmail = document.getElementById("usuarioEmail");
   if (usuarioEmail) usuarioEmail.textContent = user.email || "";
-
   const logoutButton = document.getElementById("logoutButton");
   if (logoutButton) {
-    logoutButton.onclick = async () => {
-      await logout();
-      window.location.href = "login.html";
-    };
+    logoutButton.onclick = async () => { await logout(); window.location.href = "login.html"; };
   }
-
   mostrarCargando();
   await cargarDatosUsuario();
   await renderDetalleCliente();

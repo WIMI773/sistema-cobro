@@ -75,8 +75,6 @@ function etiquetaPeriodo(desde, hasta) {
   return `Del ${formatearFecha(desde)} al ${formatearFecha(hasta)}`;
 }
 
-// ── Saldo real usando la colección pagos (igual que detalle.js) ───────
-// Suma todos los pagos registrados para ese préstamo, sin importar el período
 function totalCobradoReal(prestamoId) {
   return pagos
     .filter(pg => pg.prestamoId === prestamoId)
@@ -85,6 +83,21 @@ function totalCobradoReal(prestamoId) {
 
 function saldoReal(prestamo) {
   return Math.max(0, Number(prestamo.total || 0) - totalCobradoReal(prestamo.id));
+}
+
+// Devuelve true si el cliente tiene al menos una cuota vencida HOY o antes
+// (mora o pendiente con fecha <= hoy). Excluye clientes cuya primera cuota
+// aún no ha llegado (préstamo hecho hoy, cobra desde mañana).
+function tieneDeudaVencida(clienteId) {
+  const fechaHoy = hoy();
+  return prestamos.some(p => {
+    if (p.clienteId !== clienteId || p.estado !== 'Activo') return false;
+    if (!Array.isArray(p.cuotas)) return false;
+    return p.cuotas.some(c =>
+      (c.estado === 'mora' || c.estado === 'pendiente' || c.estado === 'parcial') &&
+      normalizarFecha(c.fecha) <= fechaHoy
+    );
+  });
 }
 
 async function cargarTodo() {
@@ -104,18 +117,13 @@ function renderReporte() {
 
   document.getElementById('periodoLabel').textContent = etiquetaPeriodo(desde, hasta);
 
-  // Pagos del período filtrado
   const pagosFiltrados = pagos.filter(p => enRango(p.fecha, desde, hasta));
-  // Total recaudado en el período = suma real de lo cobrado
   const totalRecaudado = pagosFiltrados.reduce((s, p) => s + Number(p.valor || 0), 0);
 
   const clientesQuePageron = new Set(pagosFiltrados.map(p => p.clienteId));
   const prestamosActivos   = prestamos.filter(p => p.estado === 'Activo');
 
   let totalMora = 0;
-
-  // "Total prestado" = suma de saldos reales pendientes de todos los préstamos activos
-  // Usa la colección pagos para el cálculo, no el estado de las cuotas
   const totalPrestado = prestamosActivos.reduce((suma, p) => {
     if (Array.isArray(p.cuotas)) {
       totalMora += p.cuotas.filter(c => c.estado === 'mora').length;
@@ -123,8 +131,14 @@ function renderReporte() {
     return suma + saldoReal(p);
   }, 0);
 
+  // Clientes que pagaron en el período
   const clientesConPago = clientes.filter(c => clientesQuePageron.has(c.id));
-  const clientesSinPago = clientes.filter(c => !clientesQuePageron.has(c.id));
+
+  // Clientes sin pago en el período PERO solo si tienen cuotas vencidas hoy o antes
+  // → no aparece el cliente si su préstamo es de hoy y cobra desde mañana
+  const clientesSinPago = clientes.filter(c =>
+    !clientesQuePageron.has(c.id) && tieneDeudaVencida(c.id)
+  );
 
   function montoPagadoPorCliente(clienteId) {
     return pagosFiltrados
@@ -189,23 +203,20 @@ function renderReporte() {
     <div class="card reporte-seccion">
       <h3>❌ Clientes sin pago (${clientesSinPago.length})</h3>
       ${clientesSinPago.length === 0
-        ? `<div class="reporte-placeholder">Todos los clientes han pagado. 🎉</div>`
-        : clientesSinPago.map(c => {
-            const tieneDeuda = prestamos.some(p => p.clienteId === c.id && p.estado === 'Activo');
-            return tieneDeuda ? `
-              <div class="cliente-fila no-pago">
-                <span class="dot rojo"></span>
-                <img class="cliente-fila-avatar"
-                  src="${c.foto || 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80'}"
-                  alt="${c.nombre}" />
-                <div class="cliente-fila-info">
-                  <strong>${c.nombre}</strong>
-                  <span>${c.telefono || '-'}</span>
-                </div>
-                <div class="cliente-fila-monto" style="color:#b91c1c;">Pendiente</div>
+        ? `<div class="reporte-placeholder">No hay clientes con cuotas vencidas sin pagar. 🎉</div>`
+        : clientesSinPago.map(c => `
+            <div class="cliente-fila no-pago">
+              <span class="dot rojo"></span>
+              <img class="cliente-fila-avatar"
+                src="${c.foto || 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80'}"
+                alt="${c.nombre}" />
+              <div class="cliente-fila-info">
+                <strong>${c.nombre}</strong>
+                <span>${c.telefono || '-'}</span>
               </div>
-            ` : '';
-          }).join('')
+              <div class="cliente-fila-monto" style="color:#b91c1c;">Pendiente</div>
+            </div>
+          `).join('')
       }
     </div>
 
