@@ -79,11 +79,17 @@ function hoy() {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
 
-// Suma un día a una fecha YYYY-MM-DD
 function diaSiguiente(fechaStr) {
   const d = new Date(fechaStr + "T00:00:00");
   d.setDate(d.getDate() + 1);
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+// Convierte YYYY-MM-DD a DD/MM/YYYY para mostrar
+function formatearFecha(f) {
+  if (!f) return '-';
+  const [y, m, d] = f.split('-');
+  return `${d}/${m}/${y}`;
 }
 
 function mostrarNotificacion(mensaje, tipo = "info") {
@@ -323,11 +329,16 @@ async function renderDetalleCliente() {
         let saldo  = saldoPendiente(p);
         let mora   = cuotasEnMora(p);
         let estado = p.estado === "Activo" ? "Activo" : "Pagado";
+
+        // Fecha del préstamo: usa fechaPrestamo si existe, si no fechaInicio
+        const fechaMostrar = p.fechaPrestamo || p.fechaInicio || null;
+
         return `
           <div class="loan-item ${p.id === prestamoSeleccionadoId ? 'loan-item-active' : ''}" onclick="seleccionarPrestamo('${p.id}')">
             <div class="loan-item-main">
               <div>
                 <div class="loan-item-title">Préstamo #${p.id}</div>
+                ${fechaMostrar ? `<div style="font-size:0.75rem;color:#6b7280;margin-bottom:2px;">📅 Fecha préstamo: ${formatearFecha(fechaMostrar)}</div>` : ''}
                 <div class="loan-item-meta">Monto ${formatCOP(p.monto)} · Total ${formatCOP(p.total)} · Pagado ${formatCOP(pagado)} · Saldo ${formatCOP(saldo)}</div>
               </div>
               <span class="badge ${mora > 0 ? 'mora' : ''}">${estado}</span>
@@ -494,7 +505,6 @@ async function crearPrestamoCliente() {
   let numCuotas       = parseInt(document.getElementById("cuotas").value, 10);
   let frecuencia      = document.getElementById("frecuencia").value;
 
-  // Fecha del préstamo ingresada por el usuario (por defecto hoy)
   const fechaPrestamoInput = document.getElementById("fechaPrestamo");
   const fechaPrestamo = fechaPrestamoInput?.value?.trim() || hoy();
 
@@ -511,7 +521,6 @@ async function crearPrestamoCliente() {
   let resto           = total - valorCuotaBase * numCuotas;
   let valorCuotaManual = !isNaN(valorCuotaInput) && valorCuotaInput > 0;
 
-  // La primera cuota siempre es al DÍA SIGUIENTE de la fecha del préstamo
   const fechaPrimeraCuota = diaSiguiente(fechaPrestamo);
 
   let listaCuotas = [];
@@ -551,8 +560,8 @@ async function crearPrestamoCliente() {
   const prestamo = {
     clienteId, monto, interes, total,
     numeroCuotas: numCuotas, frecuencia,
-    fechaPrestamo,          // fecha en que se hizo el préstamo
-    fechaInicio: fechaPrimeraCuota, // fecha de la primera cuota (día siguiente)
+    fechaPrestamo,
+    fechaInicio: fechaPrimeraCuota,
     estado: "Activo", cuotas: listaCuotas, userId
   };
 
@@ -569,7 +578,7 @@ async function crearPrestamoCliente() {
   prestamoSeleccionadoId = prestamoId;
   await cargarPrestamos();
   renderDetalleCliente();
-  mostrarNotificacion("Préstamo creado. Primera cuota: " + fechaPrimeraCuota, "success");
+  mostrarNotificacion("Préstamo creado. Primera cuota: " + formatearFecha(fechaPrimeraCuota), "success");
 }
 
 async function pagarCuota(prestamoId) {
