@@ -59,6 +59,19 @@
       align-items: center;
       gap: 3px;
     }
+
+    /* ── Botones de foto ── */
+    .foto-botones {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 6px;
+    }
+
+    .foto-botones .btn-secondary {
+      flex: 1;
+      min-width: 120px;
+    }
   </style>
 </head>
 <body>
@@ -99,21 +112,43 @@
 
         <img id="fotoPreview" class="hidden" alt="Vista previa foto cliente" />
 
-        <!-- Sin capture="environment" para que el sistema ofrezca cámara Y galería -->
+        <!-- Input CÁMARA: abre directamente la cámara trasera -->
         <input
-          id="fotoInput"
+          id="fotoInputCamara"
+          type="file"
+          accept="image/*"
+          capture="environment"
+          class="hidden"
+          onchange="handleClienteFotoFile(event)"
+        />
+
+        <!-- Input GALERÍA: abre el selector de archivos / galería -->
+        <input
+          id="fotoInputGaleria"
           type="file"
           accept="image/*"
           class="hidden"
           onchange="handleClienteFotoFile(event)"
         />
-        <button
-          type="button"
-          class="btn-secondary small"
-          onclick="document.getElementById('fotoInput').click()"
-        >
-          📷 Foto / Galería
-        </button>
+
+        <!-- Dos botones visibles -->
+        <div class="foto-botones">
+          <button
+            type="button"
+            class="btn-secondary small"
+            onclick="document.getElementById('fotoInputCamara').click()"
+          >
+            📷 Tomar foto
+          </button>
+          <button
+            type="button"
+            class="btn-secondary small"
+            onclick="document.getElementById('fotoInputGaleria').click()"
+          >
+            🖼️ Galería
+          </button>
+        </div>
+
         <div id="fotoSeleccionada" class="help-text" style="margin-top:4px;">
           No hay foto seleccionada
         </div>
