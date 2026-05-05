@@ -85,7 +85,6 @@ function diaSiguiente(fechaStr) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
 
-// Convierte YYYY-MM-DD a DD/MM/YYYY para mostrar
 function formatearFecha(f) {
   if (!f) return '-';
   const [y, m, d] = f.split('-');
@@ -118,6 +117,60 @@ function cerrarModalPago() {
   pagoModalPrestamoId = null;
   pagoModalCuotaNumero = null;
 }
+
+// ─── Modal editar cliente ─────────────────────────────────────────────────
+function abrirModalEditar() {
+  const cliente = getCliente();
+  if (!cliente) return;
+
+  document.getElementById("editNombre").value    = cliente.nombre    || "";
+  document.getElementById("editCedula").value    = cliente.cedula    || "";
+  document.getElementById("editTelefono").value  = cliente.telefono  || "";
+  document.getElementById("editDireccion").value = cliente.direccion || "";
+  document.getElementById("editFoto").value      = cliente.foto      || "";
+
+  const modal = document.getElementById("modalEditarCliente");
+  modal.classList.remove("hidden");
+  modal.setAttribute("aria-hidden", "false");
+}
+
+function cerrarModalEditar() {
+  const modal = document.getElementById("modalEditarCliente");
+  modal.classList.add("hidden");
+  modal.setAttribute("aria-hidden", "true");
+}
+
+async function guardarEdicionCliente() {
+  const nombre    = document.getElementById("editNombre").value.trim();
+  const cedula    = document.getElementById("editCedula").value.trim();
+  const telefono  = document.getElementById("editTelefono").value.trim();
+  const direccion = document.getElementById("editDireccion").value.trim();
+  const foto      = document.getElementById("editFoto").value.trim();
+
+  if (!nombre) {
+    mostrarNotificacion("El nombre es obligatorio.", "error"); return;
+  }
+
+  try {
+    await updateDoc(doc(db, "clientes", clienteId), {
+      nombre, cedula, telefono, direccion, foto
+    });
+
+    // Actualizar localmente para no recargar todo
+    const idx = clientes.findIndex(c => c.id === clienteId);
+    if (idx !== -1) {
+      clientes[idx] = { ...clientes[idx], nombre, cedula, telefono, direccion, foto };
+    }
+
+    cerrarModalEditar();
+    mostrarNotificacion("Datos del cliente actualizados.", "success");
+    renderDetalleCliente();
+  } catch(e) {
+    console.error(e);
+    mostrarNotificacion("Error al guardar. Intenta de nuevo.", "error");
+  }
+}
+// ─────────────────────────────────────────────────────────────────────────
 
 function setDetalleTab(tab) {
   detalleTab = tab;
@@ -329,8 +382,6 @@ async function renderDetalleCliente() {
         let saldo  = saldoPendiente(p);
         let mora   = cuotasEnMora(p);
         let estado = p.estado === "Activo" ? "Activo" : "Pagado";
-
-        // Fecha del préstamo: usa fechaPrestamo si existe, si no fechaInicio
         const fechaMostrar = p.fechaPrestamo || p.fechaInicio || null;
 
         return `
@@ -380,8 +431,13 @@ async function renderDetalleCliente() {
     <div class="profile-actions">
       <a class="action-button" href="tel:${encodeURIComponent(telefonoCliente)}">Llamar</a>
       ${enlaceWhatsApp ? `<a class="action-button secondary" href="${enlaceWhatsApp}" target="_blank" rel="noopener">WhatsApp</a>` : ""}
+      <button class="action-button secondary" onclick="abrirModalEditar()">✏️ Editar</button>
     </div>
-  ` : `<div class="profile-actions"><span class="help-text">Teléfono no disponible</span></div>`;
+  ` : `
+    <div class="profile-actions">
+      <button class="action-button secondary" onclick="abrirModalEditar()">✏️ Editar cliente</button>
+    </div>
+  `;
 
   let selectedLoanSummaryHTML = selectedLoan
     ? `<div class="stats-card"><span class="badge">Monto préstamo</span><strong>${formatCOP(selectedLoan.monto)}</strong></div>`
@@ -405,7 +461,7 @@ async function renderDetalleCliente() {
       <img src="${cliente.foto || 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=500&q=80'}" alt="Foto de ${cliente.nombre}" />
       <div class="profile-info">
         <h2>${cliente.nombre}</h2>
-        <p><span>Cédula:</span> ${cliente.cedula}</p>
+        <p><span>Cédula:</span> ${cliente.cedula || '-'}</p>
         <p><span>Teléfono:</span> ${cliente.telefono || '-'}</p>
         <p><span>Dirección:</span> ${cliente.direccion || '-'}</p>
         ${accionesContacto}
@@ -710,6 +766,9 @@ window.renderManualCuotasRows = renderManualCuotasRows;
 window.confirmarPagoCuota     = confirmarPagoCuota;
 window.abrirModalPago         = abrirModalPago;
 window.cerrarModalPago        = cerrarModalPago;
+window.abrirModalEditar       = abrirModalEditar;
+window.cerrarModalEditar      = cerrarModalEditar;
+window.guardarEdicionCliente  = guardarEdicionCliente;
 window.setDetalleTab          = setDetalleTab;
 window.abrirTabPrestamo       = abrirTabPrestamo;
 

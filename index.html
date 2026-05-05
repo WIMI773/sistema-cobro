@@ -99,11 +99,11 @@
 
         <img id="fotoPreview" class="hidden" alt="Vista previa foto cliente" />
 
+        <!-- Sin capture="environment" para que el sistema ofrezca cámara Y galería -->
         <input
           id="fotoInput"
           type="file"
           accept="image/*"
-          capture="environment"
           class="hidden"
           onchange="handleClienteFotoFile(event)"
         />
@@ -112,7 +112,7 @@
           class="btn-secondary small"
           onclick="document.getElementById('fotoInput').click()"
         >
-          📷 Seleccionar foto
+          📷 Foto / Galería
         </button>
         <div id="fotoSeleccionada" class="help-text" style="margin-top:4px;">
           No hay foto seleccionada

@@ -31,25 +31,54 @@
     </section>
   </main>
 
+  <!-- Modal pago -->
   <div id="modalPago" class="modal-overlay hidden" aria-hidden="true" onclick="if (event.target === this) cerrarModalPago()">
     <div class="modal-window" role="dialog" aria-modal="true" aria-labelledby="modalPagoTitle">
       <h2 id="modalPagoTitle" class="modal-title">Pagar cuota</h2>
       <p id="modalPagoTexto" class="modal-content">Selecciona la fecha de pago manualmente.</p>
-
       <div class="modal-field">
         <label for="modalPagoFecha">Fecha de pago</label>
         <input id="modalPagoFecha" type="date" />
       </div>
-
       <div class="modal-field">
         <label for="modalPagoMonto">Monto a pagar</label>
         <input id="modalPagoMonto" type="text" inputmode="numeric" placeholder="Ej: 12.000" />
         <small style="color:#6b7280; font-size:0.75rem;">Puedes modificar el monto si el cliente paga un valor diferente.</small>
       </div>
-
       <div class="modal-actions">
         <button type="button" class="btn-secondary small" onclick="cerrarModalPago()">Cancelar</button>
         <button type="button" onclick="confirmarPagoCuota()">Confirmar pago</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal editar cliente -->
+  <div id="modalEditarCliente" class="modal-overlay hidden" aria-hidden="true" onclick="if (event.target === this) cerrarModalEditar()">
+    <div class="modal-window" role="dialog" aria-modal="true" aria-labelledby="modalEditarTitle">
+      <h2 id="modalEditarTitle" class="modal-title">Editar cliente</h2>
+      <div class="modal-field">
+        <label for="editNombre">Nombre</label>
+        <input id="editNombre" type="text" placeholder="Nombre completo" />
+      </div>
+      <div class="modal-field">
+        <label for="editCedula">Cédula</label>
+        <input id="editCedula" type="text" placeholder="Número de cédula" />
+      </div>
+      <div class="modal-field">
+        <label for="editTelefono">Teléfono</label>
+        <input id="editTelefono" type="tel" placeholder="Ej: 3001234567" />
+      </div>
+      <div class="modal-field">
+        <label for="editDireccion">Dirección</label>
+        <input id="editDireccion" type="text" placeholder="Dirección" />
+      </div>
+      <div class="modal-field">
+        <label for="editFoto">URL foto (opcional)</label>
+        <input id="editFoto" type="url" placeholder="https://..." />
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn-secondary small" onclick="cerrarModalEditar()">Cancelar</button>
+        <button type="button" onclick="guardarEdicionCliente()">Guardar cambios</button>
       </div>
     </div>
   </div>
