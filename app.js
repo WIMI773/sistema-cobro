@@ -250,18 +250,33 @@ function renderClientes() {
 }
 
 async function eliminarCliente(id) {
-  if (!confirm("¿Eliminar cliente?")) return;
+  const confirmar = confirm(
+    "⚠️ ¿Seguro que deseas eliminar este cliente?\n\n" +
+    "Se borrarán también TODOS sus préstamos y pagos.\n" +
+    "Esta acción NO se puede deshacer."
+  );
 
-  await deleteDoc(doc(db, "clientes", id));
+  if (!confirmar) return;
 
-  const prestamosDelCliente = prestamos.filter(p => p.clienteId === id);
-  await Promise.all(prestamosDelCliente.map(p => deleteDoc(doc(db, "prestamos", p.id))));
+  try {
+    await deleteDoc(doc(db, "clientes", id));
 
-  const pagosDelCliente = pagos.filter(pg => pg.clienteId === id);
-  await Promise.all(pagosDelCliente.map(pg => deleteDoc(doc(db, "pagos", pg.id))));
+    const prestamosDelCliente = prestamos.filter(p => p.clienteId === id);
+    await Promise.all(prestamosDelCliente.map(p => deleteDoc(doc(db, "prestamos", p.id))));
 
-  clienteSeleccionadoId = clienteSeleccionadoId === id ? null : clienteSeleccionadoId;
-  await cargarDatosUsuario();
+    const pagosDelCliente = pagos.filter(pg => pg.clienteId === id);
+    await Promise.all(pagosDelCliente.map(pg => deleteDoc(doc(db, "pagos", pg.id))));
+
+    clienteSeleccionadoId = clienteSeleccionadoId === id ? null : clienteSeleccionadoId;
+
+    alert("✅ Cliente eliminado correctamente");
+
+    await cargarDatosUsuario();
+
+  } catch (error) {
+    console.error(error);
+    alert("❌ Error al eliminar el cliente");
+  }
 }
 
 function seleccionarCliente(id) {
