@@ -402,6 +402,7 @@ async function renderDetalleCliente() {
             <div class="loan-item-actions">
               <button class="small btn-secondary" onclick="event.stopPropagation(); seleccionarPrestamo('${p.id}')">Ver</button>
               <button class="small" onclick="event.stopPropagation(); pagarCuota('${p.id}')">Pagar cuota</button>
+              <button class="small" onclick="event.stopPropagation(); abrirModalEditarPrestamo('${p.id}')">Editar</button>
               <button class="small btn-danger" onclick="event.stopPropagation(); eliminarPrestamo('${p.id}')">Eliminar préstamo</button>
             </div>
           </div>
@@ -776,6 +777,103 @@ async function eliminarCuota(prestamoId, numeroCuota) {
 }
 
 window.eliminarCuota          = eliminarCuota;
+let editarPrestamoId = null;
+
+function abrirModalEditarPrestamo(prestamoId) {
+  const prestamo = prestamos.find(p => p.id === prestamoId);
+  if (!prestamo) { mostrarNotificacion('Préstamo no encontrado.', 'error'); return; }
+  editarPrestamoId = prestamoId;
+  document.getElementById('editPrestamoMonto').value = (prestamo.monto || 0).toLocaleString('es-CO');
+  document.getElementById('editPrestamoInteres').value = prestamo.interes || 0;
+  document.getElementById('editPrestamoCuotas').value = prestamo.numeroCuotas || (prestamo.cuotas? prestamo.cuotas.length : '');
+  document.getElementById('editPrestamoValorCuota').value = (prestamo.cuotas && prestamo.cuotas[0]) ? (prestamo.cuotas[0].valor || '').toLocaleString('es-CO') : '';
+  document.getElementById('editPrestamoFecha').value = prestamo.fechaPrestamo || prestamo.fechaInicio || hoy();
+  document.getElementById('editPrestamoFrecuencia').value = prestamo.frecuencia || 'mensual';
+  document.getElementById('editPrestamoRegenerar').checked = false;
+
+  aplicarFormatoInputCOP('editPrestamoMonto');
+  aplicarFormatoInputCOP('editPrestamoValorCuota');
+
+  const modal = document.getElementById('modalEditarPrestamo');
+  if (!modal) return;
+  modal.classList.remove('hidden');
+  modal.setAttribute('aria-hidden', 'false');
+}
+
+function cerrarModalEditarPrestamo() {
+  const modal = document.getElementById('modalEditarPrestamo');
+  if (!modal) return;
+  modal.classList.add('hidden');
+  modal.setAttribute('aria-hidden', 'true');
+  editarPrestamoId = null;
+}
+
+async function guardarEdicionPrestamo() {
+  if (!editarPrestamoId) return mostrarNotificacion('No hay préstamo seleccionado.', 'error');
+  const prestamo = prestamos.find(p => p.id === editarPrestamoId);
+  if (!prestamo) return mostrarNotificacion('Préstamo no encontrado.', 'error');
+
+  const montoRaw = (document.getElementById('editPrestamoMonto').dataset.rawValue || document.getElementById('editPrestamoMonto').value || '').replace(/\D/g, '');
+  const monto = parseFloat(montoRaw);
+  const interes = parseFloat(document.getElementById('editPrestamoInteres').value) || 0;
+  const numeroCuotas = parseInt(document.getElementById('editPrestamoCuotas').value, 10);
+  const valorCuotaRaw = (document.getElementById('editPrestamoValorCuota').dataset.rawValue || document.getElementById('editPrestamoValorCuota').value || '').replace(/\D/g, '');
+  const valorCuota = parseFloat(valorCuotaRaw);
+  const fechaPrestamo = document.getElementById('editPrestamoFecha').value || hoy();
+  const frecuencia = document.getElementById('editPrestamoFrecuencia').value || 'mensual';
+  const regenerar = document.getElementById('editPrestamoRegenerar').checked;
+
+  if (isNaN(monto) || monto <= 0 || isNaN(interes) || isNaN(numeroCuotas) || numeroCuotas <= 0) {
+    mostrarNotificacion('Completa monto, interés y número de cuotas correctamente.', 'error');
+    return;
+  }
+
+  let total = Math.round(monto + (monto * interes / 100));
+  if (!isNaN(valorCuota) && valorCuota > 0) total = Math.round(valorCuota * numeroCuotas);
+
+  let nuevasCuotas = prestamo.cuotas;
+
+  if (regenerar) {
+    if (frecuencia === 'manual') {
+      if (!confirm('Regenerar cuotas en modo manual no está soportado desde aquí. Cancela y genera manualmente.')) return;
+    }
+    if (!confirm('Regenerar cuotas eliminará información de pagos previos. ¿Continuar?')) return;
+
+    const fechaPrimeraCuota = diaSiguiente(fechaPrestamo);
+    let valorCuotaBase = Math.floor(total / numeroCuotas);
+    let resto = total - valorCuotaBase * numeroCuotas;
+    nuevasCuotas = [];
+    for (let i = 0; i < numeroCuotas; i++) {
+      let vc = (!isNaN(valorCuota) && valorCuota > 0) ? valorCuota : valueOrDefault(valorCuotaBase, 0);
+      if (isNaN(valorCuota) || valorCuota <= 0) {
+        if (i === numeroCuotas - 1) vc += resto;
+      }
+      nuevasCuotas.push({ numero: i + 1, fecha: sumarPeriodo(fechaPrimeraCuota, frecuencia, i), valor: vc, estado: 'pendiente' });
+    }
+  }
+
+  try {
+    await updateDoc(doc(db, 'prestamos', prestamo.id), {
+      monto, interes, numeroCuotas, frecuencia, fechaPrestamo, total, cuotas: nuevasCuotas
+    });
+
+    // Actualizar localmente
+    const idx = prestamos.findIndex(p => p.id === prestamo.id);
+    if (idx !== -1) {
+      prestamos[idx] = { ...prestamos[idx], monto, interes, numeroCuotas, frecuencia, fechaPrestamo, total, cuotas: nuevasCuotas };
+    }
+
+    cerrarModalEditarPrestamo();
+    await cargarPrestamos();
+    renderDetalleCliente();
+    mostrarNotificacion('Préstamo actualizado.', 'success');
+  } catch (e) {
+    console.error(e);
+    mostrarNotificacion('Error al actualizar préstamo.', 'error');
+  }
+}
+
+function valueOrDefault(v, def) { return (isNaN(v) || v === null) ? def : v; }
 window.seleccionarPrestamo    = seleccionarPrestamo;
 window.crearPrestamoCliente   = crearPrestamoCliente;
 window.pagarCuota             = pagarCuota;
@@ -790,6 +888,9 @@ window.cerrarModalEditar      = cerrarModalEditar;
 window.guardarEdicionCliente  = guardarEdicionCliente;
 window.setDetalleTab          = setDetalleTab;
 window.abrirTabPrestamo       = abrirTabPrestamo;
+window.abrirModalEditarPrestamo = abrirModalEditarPrestamo;
+window.cerrarModalEditarPrestamo = cerrarModalEditarPrestamo;
+window.guardarEdicionPrestamo = guardarEdicionPrestamo;
 
 onAuthChange(async user => {
   if (!user) { window.location.href = "login.html"; return; }

@@ -3,18 +3,24 @@ import {
   collection,
   query,
   where,
-  getDocs
+  getDocs,
+  setDoc,
+  doc,
+  getDoc
 } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 
 let clientes  = [];
 let prestamos = [];
 let pagos     = [];
 let gastos    = [];
+let basesDaily = {};
 let userId    = null;
+let baseFirestorePermisos = true;
 
 let periodoActivo = 'hoy';
 let rangoDesde    = '';
 let rangoHasta    = '';
+let ultimoDia     = '';
 
 function fechaLocal(d = new Date()) {
   const yyyy = d.getFullYear();
@@ -114,6 +120,30 @@ function tieneDeudaVencida(clienteId) {
   });
 }
 
+function esClavo(clienteId) {
+  const prestamosDelCliente = prestamos.filter(p => p.clienteId === clienteId && p.estado === 'Activo');
+  if (prestamosDelCliente.length === 0) return false;
+
+  const fechaHoy = new Date();
+  const hace3Meses = new Date(fechaHoy.getFullYear(), fechaHoy.getMonth() - 3, fechaHoy.getDate());
+
+  for (const prestamo of prestamosDelCliente) {
+    if (!Array.isArray(prestamo.cuotas)) continue;
+    for (const cuota of prestamo.cuotas) {
+      if (cuota.estado === 'pendiente' || cuota.estado === 'mora') {
+        const fechaCuota = normalizarFecha(cuota.fecha);
+        if (!fechaCuota) continue;
+        const [año, mes, día] = fechaCuota.split('-');
+        const fechaCuotaObj = new Date(parseInt(año), parseInt(mes, 10) - 1, parseInt(día, 10));
+        if (fechaCuotaObj < hace3Meses) {
+          return true;
+        }
+      }
+    }
+  }
+  return false;
+}
+
 async function cargarTodo() {
   if (!userId) return;
   try {
@@ -127,10 +157,116 @@ async function cargarTodo() {
     prestamos = snapP.docs.map(d  => ({ id: d.id, ...d.data() }));
     pagos     = snapPg.docs.map(d => ({ id: d.id, ...d.data() }));
     gastos    = snapG.docs.map(d => ({ id: d.id, ...d.data() }));
+    await cargarBaseDiaria(hoy());
     console.log('Gastos cargados:', gastos);
   } catch (err) {
     console.error('Error cargando datos:', err);
   }
+}
+
+function claveBaseDiaria(fecha) {
+  return `baseDiaria_${userId || 'anon'}_${fecha}`;
+}
+
+async function cargarBaseDiaria(fecha) {
+  if (!userId || !fecha || !baseFirestorePermisos) return;
+  const id = `base_${userId}_${fecha}`;
+  try {
+    const snap = await getDoc(doc(db, 'bases', id));
+    if (snap.exists()) {
+      const data = snap.data();
+      basesDaily[fecha] = Number(data.valor || 0);
+    }
+  } catch (err) {
+    if (String(err).includes('Missing or insufficient permissions')) {
+      baseFirestorePermisos = false;
+      mostrarToast('Base diaria cargada desde el navegador. Ajusta permisos de Firestore para guardarla en la nube.');
+    } else {
+      console.warn('No se pudo cargar la base de Firestore:', err);
+    }
+  }
+}
+
+function baseParaFecha(fecha) {
+  if (!fecha) return 0;
+  if (typeof basesDaily[fecha] !== 'undefined') {
+    return Number(basesDaily[fecha] || 0);
+  }
+  const valor = localStorage.getItem(claveBaseDiaria(fecha));
+  return Number(valor || 0);
+}
+
+async function guardarBaseDiaria(fecha, valor) {
+  if (!fecha) return;
+  localStorage.setItem(claveBaseDiaria(fecha), String(valor));
+  basesDaily[fecha] = Number(valor || 0);
+
+  if (!userId || !baseFirestorePermisos) return;
+  const id = `base_${userId}_${fecha}`;
+  try {
+    await setDoc(doc(db, 'bases', id), {
+      userId,
+      fecha,
+      valor: Number(valor || 0),
+      actualizado: new Date().toISOString()
+    });
+  } catch (err) {
+    if (String(err).includes('Missing or insufficient permissions')) {
+      baseFirestorePermisos = false;
+      mostrarToast('Base guardada localmente. Ajusta permisos de Firestore para guardarla en la nube.');
+    } else {
+      console.warn('No se pudo guardar la base en Firestore:', err);
+    }
+  }
+}
+
+function mostrarToast(msg) {
+  const toast = document.getElementById('toast');
+  if (!toast) return;
+  toast.textContent = msg;
+  toast.classList.add('visible');
+  setTimeout(() => toast.classList.remove('visible'), 2800);
+}
+
+window.guardarBaseHoy = async function() {
+  const fecha = hoy();
+  const input = document.getElementById('baseDiariaInput');
+  if (!input) return;
+
+  const valor = Number(input.value);
+  if (Number.isNaN(valor) || valor < 0) {
+    mostrarToast('Ingresa un valor numérico válido.');
+    return;
+  }
+
+  await guardarBaseDiaria(fecha, valor);
+  mostrarToast('Base diaria guardada');
+  renderReporte();
+};
+
+function iniciarReinicioDiario() {
+  ultimoDia = hoy();
+
+  const actualizarAlNuevoDia = async () => {
+    const hoyActual = hoy();
+    if (hoyActual !== ultimoDia) {
+      ultimoDia = hoyActual;
+      await cargarBaseDiaria(hoyActual);
+      renderReporte();
+      mostrarToast('Se actualizó el reporte al nuevo día');
+    }
+  };
+
+  const ahora = new Date();
+  const manana = new Date(ahora);
+  manana.setDate(ahora.getDate() + 1);
+  manana.setHours(0, 0, 5, 0);
+  const msHastaMedianoche = manana.getTime() - ahora.getTime();
+
+  setTimeout(() => {
+    actualizarAlNuevoDia();
+    setInterval(actualizarAlNuevoDia, 24 * 60 * 60 * 1000);
+  }, Math.max(msHastaMedianoche, 0));
 }
 
 function renderReporte() {
@@ -147,6 +283,10 @@ function renderReporte() {
   console.log('Gastos totales:', gastos);
   console.log('Rango:', { desde, hasta });
   console.log('Gastos filtrados:', gastosFiltrados);
+
+  // Préstamos creados en el período (usar fechaPrestamo si existe)
+  const prestamosFiltrados = prestamos.filter(p => enRango(p.fechaPrestamo || p.fechaInicio || p.fecha, desde, hasta));
+  const totalPrestamosDiariosMonto = prestamosFiltrados.reduce((s, p) => s + Number(p.monto || 0), 0);
 
   const clientesQuePageron = new Set(pagosFiltrados.map(p => p.clienteId));
   const prestamosActivos   = prestamos.filter(p => p.estado === 'Activo');
@@ -167,6 +307,11 @@ function renderReporte() {
   const clientesSinPago = clientes.filter(c =>
     !clientesQuePageron.has(c.id) && tieneDeudaVencida(c.id)
   );
+
+  const clientesClavo = clientes.filter(c => esClavo(c.id));
+  const totalClavos = prestamos
+    .filter(p => p.estado === 'Activo' && clientesClavo.some(c => c.id === p.clienteId))
+    .reduce((s, p) => s + saldoReal(p), 0);
 
   function montoPagadoPorCliente(clienteId) {
     return pagosFiltrados
@@ -198,18 +343,75 @@ function renderReporte() {
         <div class="stat-label">Préstamos activos</div>
         <div class="stat-value">${prestamosActivos.length}</div>
       </div>
-      <div class="reporte-stat-card ambar">
-        <div class="stat-label">Cuotas en mora</div>
-        <div class="stat-value">${totalMora}</div>
+      <div class="reporte-stat-card rojo">
+        <div class="stat-label">Clientes clavos</div>
+        <div class="stat-value">${clientesClavo.length}</div>
       </div>
+      <div class="reporte-stat-card rojo">
+        <div class="stat-label">Dinero en clavos</div>
+        <div class="stat-value">${formatearMoneda(totalClavos)}</div>
+      </div>
+      
       <div class="reporte-stat-card ambar">
-        <div class="stat-label">Total prestado</div>
+        <div class="stat-label">Cartera</div>
         <div class="stat-value">${formatearMoneda(totalPrestado)}</div>
       </div>
       <div class="reporte-stat-card rojo">
         <div class="stat-label">Total gastos</div>
         <div class="stat-value">${formatearMoneda(totalGastos)}</div>
       </div>
+      <div id="prestamosDiariosCard" class="reporte-stat-card azul clickable" onclick="window.location.href='prestamosdiarios.html'">
+        <div class="stat-label">Préstamos diarios</div>
+        <div class="stat-value">${formatearMoneda(totalPrestamosDiariosMonto)}</div>
+      </div>
+      <div class="reporte-stat-card ambar">
+        <div class="stat-label">Base diaria</div>
+        <div class="stat-value">${formatearMoneda(baseParaFecha(hoy()))}</div>
+      </div>
+    </div>
+
+    <div class="card reporte-seccion base-diaria-card">
+      <h3>💰 Base diaria</h3>
+      <div class="base-diaria-row">
+        <label class="base-diaria-label">
+          <span>Base del día</span>
+          <input id="baseDiariaInput" type="number" min="0" step="100" value="${baseParaFecha(hoy())}" />
+        </label>
+        <button class="btn-primary small" onclick="guardarBaseHoy()">Guardar base</button>
+      </div>
+      <p class="nota">Guarda la base que usas para salir cada día y mantenla visible en el reporte.</p>
+    </div>
+
+    <div class="card reporte-seccion">
+      <h3>💸 Préstamos del período (${prestamosFiltrados.length})</h3>
+      ${prestamosFiltrados.length === 0
+        ? `<div class="reporte-placeholder">No hay préstamos en este período.</div>`
+        : `<div class="tabla-pagos-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Cliente</th>
+                  <th>Monto</th>
+                  <th>Fecha</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${prestamosFiltrados
+                  .sort((a, b) => normalizarFecha(b.fechaPrestamo || b.fechaInicio || b.fecha).localeCompare(normalizarFecha(a.fechaPrestamo || a.fechaInicio || a.fecha)))
+                  .map(p => {
+                    const cliente = clientes.find(c => c.id === p.clienteId);
+                    return `
+                      <tr>
+                        <td>${cliente ? cliente.nombre : '-'}</td>
+                        <td>${formatearMoneda(p.monto)}</td>
+                        <td>${formatearFecha(normalizarFecha(p.fechaPrestamo || p.fechaInicio || p.fecha))}</td>
+                      </tr>
+                    `;
+                  }).join('')}
+              </tbody>
+            </table>
+          </div>`
+      }
     </div>
 
     <div class="card reporte-seccion">
@@ -408,4 +610,5 @@ onAuthChange(async user => {
 
   await cargarTodo();
   renderReporte();
+  iniciarReinicioDiario();
 });

@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0a023a" />
+  <title>Préstamos Diarios – Sistema de Cobro</title>
+  <link rel="icon" href="logocobro.png" />
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    .reporte-wrapper {
+      max-width: 960px;
+      margin: 18px auto 40px;
+      padding: 0 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .reporte-seccion {
+      background: #ffffff;
+      border: 1px solid #e5e7eb;
+      border-radius: 18px;
+      padding: 18px;
+    }
+
+    .reporte-seccion h3 {
+      margin: 0 0 14px;
+      font-size: 1rem;
+      font-weight: 700;
+      color: #111827;
+    }
+
+    .tabla-pagos-container {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .tabla-pagos-container table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .tabla-pagos-container th,
+    .tabla-pagos-container td {
+      padding: 12px 14px;
+      border-bottom: 1px solid #e5e7eb;
+      text-align: left;
+      font-size: 0.92rem;
+      color: #1f2937;
+    }
+
+    .tabla-pagos-container th {
+      background: #f8fafc;
+      color: #475569;
+      font-weight: 700;
+    }
+
+    .reporte-placeholder {
+      padding: 28px 16px;
+      text-align: center;
+      color: #6b7280;
+      font-size: 0.95rem;
+    }
+
+    .detalle-fecha {
+      margin-bottom: 12px;
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .detalle-fecha span {
+      font-size: 0.88rem;
+      color: #6b7280;
+    }
+
+    .detalle-total {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #111827;
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 80px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: #111827;
+      color: #fff;
+      padding: 10px 22px;
+      border-radius: 999px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      opacity: 0;
+      transition: opacity 0.25s, transform 0.25s;
+      pointer-events: none;
+      z-index: 9999;
+      white-space: nowrap;
+    }
+
+    .toast.visible {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    @media (max-width: 640px) {
+      .detalle-fecha {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="header-content">
+      <div>
+        <h1>Préstamos Diarios</h1>
+        <p>Controla todos los préstamos por fecha para llevar un seguimiento claro.</p>
+      </div>
+      <div class="header-actions">
+        <span id="usuarioEmail"></span>
+        <button class="btn-secondary small" onclick="window.location.href='reportes.html'">← Reportes</button>
+        <button class="btn-secondary small" onclick="window.location.href='index.html'">Inicio</button>
+        <button id="logoutButton" class="btn-danger small">Cerrar sesión</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="reporte-wrapper">
+    <div id="prestamosDiariosContenido" class="reporte-seccion">
+      <div class="reporte-placeholder">Cargando préstamos...</div>
+    </div>
+  </main>
+
+  <div id="toast" class="toast"></div>
+  <script type="module" src="prestamosdiarios.js"></script>
+</body>
+</html>
