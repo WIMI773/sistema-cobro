@@ -8,7 +8,6 @@
   <link rel="icon" href="logocobro.png" />
   <link rel="stylesheet" href="styles.css" />
   <style>
-    /* ── LAYOUT REPORTE ── */
     .reporte-wrapper {
       max-width: 860px;
       margin: 16px auto 40px;
@@ -18,7 +17,6 @@
       gap: 16px;
     }
 
-    /* ── NAVEGACIÓN PERÍODO ── */
     .reporte-nav {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
@@ -47,7 +45,6 @@
       border-color: #2563eb;
     }
 
-    /* ── RANGO PERSONALIZADO ── */
     .rango-row {
       display: flex;
       gap: 10px;
@@ -76,7 +73,6 @@
       margin-top: 10px;
     }
 
-    /* ── STATS RESUMEN ── */
     .reporte-stats {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
@@ -115,7 +111,6 @@
     .reporte-stat-card.ambar { border-color: #fbbf24; background: #fffbeb; }
     .reporte-stat-card.ambar .stat-value { color: #b45309; }
 
-    /* ── SECCIONES ── */
     .reporte-seccion h3 {
       font-size: 0.95rem;
       font-weight: 700;
@@ -125,7 +120,6 @@
       border-bottom: 2px solid #e5e7eb;
     }
 
-    /* ── FILAS DE CLIENTES ── */
     .cliente-fila {
       display: flex;
       align-items: center;
@@ -176,14 +170,12 @@
     .dot.verde { background: #22c55e; }
     .dot.rojo  { background: #ef4444; }
 
-    /* ── TABLA ── */
     .tabla-pagos-container {
       overflow-x: auto;
       -webkit-overflow-scrolling: touch;
       border-radius: 8px;
     }
 
-    /* ── PLACEHOLDER ── */
     .reporte-placeholder {
       text-align: center;
       padding: 28px 16px;
@@ -191,7 +183,6 @@
       font-size: 0.88rem;
     }
 
-    /* ── RESPONSIVE MÓVIL ── */
     @media (max-width: 600px) {
       .reporte-wrapper {
         padding: 0 12px;
@@ -199,7 +190,6 @@
         gap: 12px;
       }
 
-      /* Navegación: 2x2 en móvil */
       .reporte-nav {
         grid-template-columns: repeat(2, 1fr);
       }
@@ -209,7 +199,6 @@
         padding: 9px 4px;
       }
 
-      /* Rango: columna completa */
       .rango-row {
         flex-direction: column;
       }
@@ -220,7 +209,6 @@
         min-width: unset;
       }
 
-      /* Stats: 2 columnas en móvil */
       .reporte-stats {
         grid-template-columns: repeat(2, 1fr);
         gap: 8px;
@@ -238,12 +226,10 @@
         font-size: 1.1rem;
       }
 
-      /* Tabla: scroll horizontal */
       .tabla-pagos-container table {
         min-width: 380px;
       }
 
-      /* Header acciones en columna */
       .header-actions {
         flex-wrap: wrap;
         gap: 6px;
@@ -276,9 +262,8 @@
       </div>
       <div class="header-actions">
         <span id="usuarioEmail"></span>
-        <a href="index.html" style="text-decoration:none;">
-          <button class="btn-secondary small">← Volver</button>
-        </a>
+        <button class="btn-secondary small" onclick="window.location.href='index.html'">← Volver</button>
+        <button class="btn-secondary small" onclick="window.location.href='gastos.html'">💸 Gastos</button>
         <button id="logoutButton" class="btn-danger small">Cerrar sesión</button>
       </div>
     </div>
@@ -286,7 +271,6 @@
 
   <div class="reporte-wrapper">
 
-    <!-- Navegación de período -->
     <div class="card">
       <div class="reporte-nav">
         <button id="btn-hoy"    onclick="setPeriodo('hoy')"    class="active">Hoy</button>
@@ -304,7 +288,6 @@
       <div id="periodoLabel" class="periodo-label"></div>
     </div>
 
-    <!-- Contenido generado por JS -->
     <div id="reporteContenido">
       <div class="reporte-placeholder">Cargando reporte...</div>
     </div>

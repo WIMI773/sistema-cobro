@@ -46,9 +46,29 @@
       border-color: #22c55e !important;
     }
 
+    /* ── Tarjeta cliente CLAVO (no prestar) ── */
+    .client-card--clavo {
+      background: #fecaca !important;
+      border-color: #ef4444 !important;
+    }
+
     /* ── Badge "Pagó hoy" ── */
     .badge-pagado {
       background: #16a34a;
+      color: #ffffff;
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 3px 9px;
+      border-radius: 999px;
+      vertical-align: middle;
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+    }
+
+    /* ── Badge "CLAVO" ── */
+    .badge-clavo {
+      background: #dc2626;
       color: #ffffff;
       font-size: 0.72rem;
       font-weight: 700;
@@ -82,9 +102,8 @@
       </div>
       <div class="header-actions">
         <span id="usuarioEmail"></span>
-        <a href="reportes.html" style="text-decoration:none;">
-          <button class="btn-secondary small">📊 Reportes</button>
-        </a>
+        <button class="btn-secondary small" onclick="window.location.href='gastos.html'">💸 Gastos</button>
+        <button class="btn-secondary small" onclick="window.location.href='reportes.html'">📊 Reportes</button>
         <button id="logoutButton" class="btn-secondary small">Cerrar sesión</button>
       </div>
     </div>

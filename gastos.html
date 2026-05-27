@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <meta name="theme-color" content="#2563eb" />
+  <title>Gastos – Sistema de Cobro</title>
+  <link rel="icon" href="logocobro.png" />
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    html, body {
+      max-width: 100%;
+      overflow-x: hidden;
+    }
+
+    /* ── RESUMEN TOTAL ── */
+    .gastos-resumen {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #fef2f2;
+      border: 1px solid #fca5a5;
+      border-radius: 14px;
+      padding: 14px 18px;
+      margin-bottom: 0;
+    }
+
+    .gastos-resumen .resumen-label {
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: #b91c1c;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .gastos-resumen .resumen-valor {
+      font-size: 1.5rem;
+      font-weight: 800;
+      color: #b91c1c;
+    }
+
+    /* ── GRUPOS POR FECHA ── */
+    .gasto-grupo {
+      margin-bottom: 14px;
+    }
+
+    .gasto-fecha-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: #6b7280;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 4px 2px 6px;
+      border-bottom: 1px solid #e5e7eb;
+      margin-bottom: 6px;
+    }
+
+    .gasto-subtotal {
+      color: #374151;
+      font-weight: 800;
+    }
+
+    /* ── TARJETA GASTO ── */
+    .gasto-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      margin-bottom: 6px;
+      background: #fff;
+      border: 1px solid #e5e7eb;
+    }
+
+    .gasto-icono {
+      font-size: 1.5rem;
+      flex-shrink: 0;
+      width: 36px;
+      text-align: center;
+      line-height: 36px;
+    }
+
+    .gasto-info {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .gasto-info strong {
+      font-size: 0.88rem;
+      color: #111827;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .gasto-categoria {
+      font-size: 0.74rem;
+      color: #6b7280;
+      background: #f3f4f6;
+      border-radius: 6px;
+      padding: 1px 7px;
+      display: inline-block;
+      width: fit-content;
+    }
+
+    .gasto-nota {
+      font-size: 0.74rem;
+      color: #9ca3af;
+      font-style: italic;
+    }
+
+    .gasto-derecha {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
+    .gasto-valor {
+      font-size: 0.92rem;
+      font-weight: 800;
+      color: #b91c1c;
+      white-space: nowrap;
+    }
+
+    /* ── TOAST ── */
+    .toast {
+      position: fixed;
+      bottom: 80px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: #111827;
+      color: #fff;
+      padding: 10px 22px;
+      border-radius: 999px;
+      font-size: 0.88rem;
+      font-weight: 600;
+      opacity: 0;
+      transition: opacity 0.25s, transform 0.25s;
+      pointer-events: none;
+      z-index: 9999;
+      white-space: nowrap;
+    }
+
+    .toast.visible {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="header-content">
+      <div>
+        <h1>Gastos</h1>
+      </div>
+      <div class="header-actions">
+        <span id="usuarioEmail"></span>
+        <a href="index.html" style="text-decoration:none;">
+          <button class="btn-secondary small">← Inicio</button>
+        </a>
+        <a href="reportes.html" style="text-decoration:none;">
+          <button class="btn-secondary small">📊 Reportes</button>
+        </a>
+        <button id="logoutButton" class="btn-secondary small">Cerrar sesión</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="dashboard">
+    <aside class="panel panel-left">
+
+      <div class="card card-small">
+        <h2>Buscar gasto</h2>
+        <input
+          type="text"
+          id="buscarGasto"
+          placeholder="Buscar por descripción o categoría"
+          oninput="buscarGastos()"
+        />
+      </div>
+
+      <!-- Formulario nuevo gasto -->
+      <div id="nuevoGastoCard" class="card card-small hidden">
+        <h2>Nuevo gasto</h2>
+
+        <input
+          type="text"
+          id="gastoDescripcion"
+          placeholder="Descripción *"
+        />
+
+        <input
+          type="number"
+          id="gastoValor"
+          placeholder="Valor $ *"
+          min="0"
+          step="100"
+        />
+
+        <select id="gastoCategoria">
+          <option value="" disabled selected>Categoría</option>
+        </select>
+
+        <label style="font-size:0.8rem;font-weight:600;color:#374151;margin-bottom:2px;display:block;">Fecha</label>
+        <input type="date" id="gastoFecha" />
+
+        <input
+          type="text"
+          id="gastoNota"
+          placeholder="Nota (opcional)"
+          style="margin-top:4px;"
+        />
+
+        <button onclick="guardarGasto()" style="margin-top:10px;">Guardar gasto</button>
+        <button type="button" class="btn-secondary" onclick="ocultarNuevoGasto()">Cancelar</button>
+      </div>
+
+      <!-- Resumen total -->
+      <div class="gastos-resumen">
+        <span class="resumen-label">💸 Total gastos</span>
+        <span class="resumen-valor" id="totalGastos">$0</span>
+      </div>
+
+      <!-- Lista de gastos -->
+      <div class="card">
+        <h2>Gastos registrados</h2>
+        <div id="listaGastos" class="client-list"></div>
+      </div>
+
+    </aside>
+  </main>
+
+  <!-- FAB: nuevo gasto -->
+  <button class="fab" onclick="toggleNuevoGasto()" aria-label="Crear gasto">+</button>
+
+  <div id="toast" class="toast"></div>
+
+  <script type="module" src="gastos.js"></script>
+</body>
+</html>

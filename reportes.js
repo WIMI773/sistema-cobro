@@ -9,6 +9,7 @@ import {
 let clientes  = [];
 let prestamos = [];
 let pagos     = [];
+let gastos    = [];
 let userId    = null;
 
 let periodoActivo = 'hoy';
@@ -24,9 +25,22 @@ function fechaLocal(d = new Date()) {
 
 function normalizarFecha(fecha) {
   if (!fecha) return '';
+  
+  // Si es un Timestamp de Firebase
   if (typeof fecha === 'object' && typeof fecha.toDate === 'function') {
     return fechaLocal(fecha.toDate());
   }
+  
+  // Si es una cadena de fecha ISO (YYYY-MM-DD)
+  if (typeof fecha === 'string') {
+    return fecha.slice(0, 10);
+  }
+  
+  // Si es una Date
+  if (fecha instanceof Date) {
+    return fechaLocal(fecha);
+  }
+  
   return String(fecha).slice(0, 10);
 }
 
@@ -102,14 +116,21 @@ function tieneDeudaVencida(clienteId) {
 
 async function cargarTodo() {
   if (!userId) return;
-  const [snapC, snapP, snapPg] = await Promise.all([
-    getDocs(query(collection(db, 'clientes'),  where('userId', '==', userId))),
-    getDocs(query(collection(db, 'prestamos'), where('userId', '==', userId))),
-    getDocs(query(collection(db, 'pagos'),     where('userId', '==', userId)))
-  ]);
-  clientes  = snapC.docs.map(d  => ({ id: d.id, ...d.data() }));
-  prestamos = snapP.docs.map(d  => ({ id: d.id, ...d.data() }));
-  pagos     = snapPg.docs.map(d => ({ id: d.id, ...d.data() }));
+  try {
+    const [snapC, snapP, snapPg, snapG] = await Promise.all([
+      getDocs(query(collection(db, 'clientes'),  where('userId', '==', userId))),
+      getDocs(query(collection(db, 'prestamos'), where('userId', '==', userId))),
+      getDocs(query(collection(db, 'pagos'),     where('userId', '==', userId))),
+      getDocs(query(collection(db, 'gastos'),    where('userId', '==', userId)))
+    ]);
+    clientes  = snapC.docs.map(d  => ({ id: d.id, ...d.data() }));
+    prestamos = snapP.docs.map(d  => ({ id: d.id, ...d.data() }));
+    pagos     = snapPg.docs.map(d => ({ id: d.id, ...d.data() }));
+    gastos    = snapG.docs.map(d => ({ id: d.id, ...d.data() }));
+    console.log('Gastos cargados:', gastos);
+  } catch (err) {
+    console.error('Error cargando datos:', err);
+  }
 }
 
 function renderReporte() {
@@ -119,6 +140,13 @@ function renderReporte() {
 
   const pagosFiltrados = pagos.filter(p => enRango(p.fecha, desde, hasta));
   const totalRecaudado = pagosFiltrados.reduce((s, p) => s + Number(p.valor || 0), 0);
+
+  const gastosFiltrados = gastos.filter(g => enRango(g.fecha, desde, hasta));
+  const totalGastos = gastosFiltrados.reduce((s, g) => s + Number(g.valor || 0), 0);
+  
+  console.log('Gastos totales:', gastos);
+  console.log('Rango:', { desde, hasta });
+  console.log('Gastos filtrados:', gastosFiltrados);
 
   const clientesQuePageron = new Set(pagosFiltrados.map(p => p.clienteId));
   const prestamosActivos   = prestamos.filter(p => p.estado === 'Activo');
@@ -177,6 +205,10 @@ function renderReporte() {
       <div class="reporte-stat-card ambar">
         <div class="stat-label">Total prestado</div>
         <div class="stat-value">${formatearMoneda(totalPrestado)}</div>
+      </div>
+      <div class="reporte-stat-card rojo">
+        <div class="stat-label">Total gastos</div>
+        <div class="stat-value">${formatearMoneda(totalGastos)}</div>
       </div>
     </div>
 
@@ -291,6 +323,42 @@ function renderReporte() {
                 }).join('')}
               </tbody>
             </table>
+          </div>`
+      }
+    </div>
+
+    <div class="card reporte-seccion">
+      <h3>💸 Gastos del período (${gastosFiltrados.length})</h3>
+      ${gastosFiltrados.length === 0
+        ? `<div class="reporte-placeholder">No hay gastos registrados en este período.</div>`
+        : `<div>
+            <div style="margin-bottom:12px;padding:10px;background:#fff3cd;border-radius:8px;border:1px solid #ffc107;">
+              <strong style="color:#856404;">Total gastos:</strong> <span style="font-weight:700;color:#856404;">${formatearMoneda(totalGastos)}</span>
+            </div>
+            <div class="tabla-pagos-container">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Descripción</th>
+                    <th>Categoría</th>
+                    <th>Valor</th>
+                    <th>Fecha</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${gastosFiltrados
+                    .sort((a, b) => normalizarFecha(b.fecha).localeCompare(normalizarFecha(a.fecha)))
+                    .map(g => `
+                      <tr>
+                        <td>${g.descripcion || '-'}</td>
+                        <td>${g.categoria || '-'}</td>
+                        <td>${formatearMoneda(g.valor)}</td>
+                        <td>${formatearFecha(normalizarFecha(g.fecha))}</td>
+                      </tr>
+                    `).join('')}
+                </tbody>
+              </table>
+            </div>
           </div>`
       }
     </div>

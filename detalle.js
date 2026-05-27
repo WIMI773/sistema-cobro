@@ -757,6 +757,25 @@ async function confirmarPagoCuota() {
   mostrarNotificacion(`Pago de ${formatCOP(montoPagado)} registrado correctamente.`, "success");
 }
 
+async function eliminarCuota(prestamoId, numeroCuota) {
+  if (!confirm(`¿Eliminar cuota #${numeroCuota}? Esta acción no se puede deshacer.`)) return;
+
+  let prestamo = prestamos.find(p => p.id === prestamoId);
+  if (!prestamo || !Array.isArray(prestamo.cuotas)) {
+    mostrarNotificacion("Préstamo o cuota no encontrado.", "error"); return;
+  }
+
+  // Filtrar la cuota a eliminar
+  prestamo.cuotas = prestamo.cuotas.filter(c => c.numero !== numeroCuota);
+
+  // Actualizar en Firebase
+  await setDoc(doc(db, "prestamos", prestamoId), prestamo);
+  await cargarPrestamos();
+  renderDetalleCliente();
+  mostrarNotificacion(`Cuota #${numeroCuota} eliminada.`, "success");
+}
+
+window.eliminarCuota          = eliminarCuota;
 window.seleccionarPrestamo    = seleccionarPrestamo;
 window.crearPrestamoCliente   = crearPrestamoCliente;
 window.pagarCuota             = pagarCuota;

@@ -122,6 +122,38 @@ function clientePagoHoy(clienteId) {
   return pagos.some(p => p.clienteId === clienteId && normalizarFecha(p.fecha) === fechaHoy);
 }
 
+// Verifica si el cliente es un "clavo" (cuota sin pagar hace más de 3 meses)
+function esClavo(clienteId) {
+  const prestamosDelCliente = prestamos.filter(p => p.clienteId === clienteId && p.estado === 'Activo');
+  
+  if (prestamosDelCliente.length === 0) return false;
+  
+  const fechaHoy = new Date();
+  const hace3Meses = new Date(fechaHoy.getFullYear(), fechaHoy.getMonth() - 3, fechaHoy.getDate());
+  
+  // Busca si hay alguna cuota vencida hace más de 3 meses
+  for (let prestamo of prestamosDelCliente) {
+    if (!Array.isArray(prestamo.cuotas)) continue;
+    
+    for (let cuota of prestamo.cuotas) {
+      // Si la cuota está pendiente o en mora
+      if (cuota.estado === 'pendiente' || cuota.estado === 'mora') {
+        const fechaCuota = normalizarFecha(cuota.fecha);
+        const [año, mes, día] = fechaCuota.split('-');
+        const fechaCuotaObj = new Date(parseInt(año), parseInt(mes) - 1, parseInt(día));
+        
+        // Si la cuota es anterior a hace 3 meses, es un clavo
+        if (fechaCuotaObj < hace3Meses) {
+          console.log(`Cliente ${clienteId} es CLAVO: cuota vencida desde ${fechaCuota}`);
+          return true;
+        }
+      }
+    }
+  }
+  
+  return false;
+}
+
 async function guardarCliente() {
   let nombre = document.getElementById("nombre").value.trim();
   let cedula = document.getElementById("cedula").value.trim();
@@ -229,9 +261,19 @@ function renderClientes() {
 
   listaCont.innerHTML = lista.map(c => {
     const pagoHoy = clientePagoHoy(c.id);
+    const clavo = esClavo(c.id);
     const fotoCliente = c.foto || 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80';
-    const claseExtra = pagoHoy ? ' client-card--pagado' : '';
-    const badge = pagoHoy ? `<span class="badge-pagado">&#10003; Pago hoy</span>` : '';
+    
+    let claseExtra = '';
+    let badge = '';
+    
+    if (clavo) {
+      claseExtra = ' client-card--clavo';
+      badge = `<span class="badge-clavo">⚠️ CLAVO - No prestar</span>`;
+    } else if (pagoHoy) {
+      claseExtra = ' client-card--pagado';
+      badge = `<span class="badge-pagado">&#10003; Pago hoy</span>`;
+    }
 
     return `
       <article class="client-card${claseExtra}" onclick="seleccionarCliente('${c.id}')">
