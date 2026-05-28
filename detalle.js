@@ -420,9 +420,54 @@ async function renderDetalleCliente() {
           <td>${pg.cuotaNumero}</td>
           <td>${formatCOP(pg.valor)}</td>
           <td>${pg.fecha}</td>
+          <td>
+            <button class="small btn-danger" onclick="event.stopPropagation(); eliminarPago('${pg.id}')">Eliminar</button>
+          </td>
         </tr>
       `).join("")
-    : `<tr><td colspan="3">No hay pagos registrados.</td></tr>`;
+    : `<tr><td colspan="4">No hay pagos registrados.</td></tr>`;
+
+  let cuotasHTML = "";
+  if (selectedLoan && Array.isArray(selectedLoan.cuotas)) {
+    const hoyStr = hoy();
+    const cuotasHastaHoy = selectedLoan.cuotas
+      .filter(c => c.fecha <= hoyStr)
+      .sort((a, b) => a.numero - b.numero);
+
+    cuotasHTML = `
+      <div class="loan-card">
+        <h3>Cuotas registradas hasta hoy</h3>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>N°</th>
+                <th>Fecha</th>
+                <th>Valor</th>
+                <th>Estado</th>
+                <th>Acción</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${cuotasHastaHoy.length
+                ? cuotasHastaHoy.map(c => `
+                    <tr>
+                      <td>${c.numero}</td>
+                      <td>${formatearFecha(c.fecha)}</td>
+                      <td>${formatCOP(c.valor)}</td>
+                      <td>${c.estado || 'pendiente'}</td>
+                      <td>
+                        <button class="small btn-danger" onclick="event.stopPropagation(); eliminarCuota('${selectedLoan.id}', ${c.numero})">Eliminar</button>
+                      </td>
+                    </tr>
+                  `).join("")
+                : `<tr><td colspan="5">No hay cuotas para mostrar hasta hoy.</td></tr>`}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  }
 
   const telefonoCliente = cliente.telefono ? cliente.telefono.trim() : "";
   const tieneTelefono   = telefonoCliente.length > 0;
@@ -490,11 +535,13 @@ async function renderDetalleCliente() {
         <div class="loan-list">${prestamosHTML}</div>
       </div>
 
+      ${cuotasHTML}
+
       <div class="payment-history card">
         <h3>Historial de pagos</h3>
         <div class="table-container">
           <table>
-            <thead><tr><th>N° cuota</th><th>Valor</th><th>Fecha</th></tr></thead>
+            <thead><tr><th>N° cuota</th><th>Valor</th><th>Fecha</th><th>Acción</th></tr></thead>
             <tbody>${pagosHTML}</tbody>
           </table>
         </div>
@@ -759,24 +806,94 @@ async function confirmarPagoCuota() {
 }
 
 async function eliminarCuota(prestamoId, numeroCuota) {
-  if (!confirm(`¿Eliminar cuota #${numeroCuota}? Esta acción no se puede deshacer.`)) return;
-
-  let prestamo = prestamos.find(p => p.id === prestamoId);
+  const prestamo = prestamos.find(p => p.id === prestamoId);
   if (!prestamo || !Array.isArray(prestamo.cuotas)) {
-    mostrarNotificacion("Préstamo o cuota no encontrado.", "error"); return;
+    mostrarNotificacion("Préstamo o cuota no encontrado.", "error");
+    return;
   }
 
-  // Filtrar la cuota a eliminar
+  const pagosCuota = pagos.filter(pg => pg.prestamoId === prestamoId && Number(pg.cuotaNumero) === Number(numeroCuota));
+  const mensajeAdicional = pagosCuota.length
+    ? `Esta cuota tiene ${pagosCuota.length} pago(s) asociados y se eliminarán también.`
+    : "";
+
+  if (!confirm(`¿Eliminar cuota #${numeroCuota}? ${mensajeAdicional}`)) return;
+
   prestamo.cuotas = prestamo.cuotas.filter(c => c.numero !== numeroCuota);
 
-  // Actualizar en Firebase
-  await setDoc(doc(db, "prestamos", prestamoId), prestamo);
-  await cargarPrestamos();
-  renderDetalleCliente();
-  mostrarNotificacion(`Cuota #${numeroCuota} eliminada.`, "success");
+  try {
+    // Eliminar pagos asociados a la cuota (si existen)
+    if (pagosCuota.length) {
+      await Promise.all(pagosCuota.map(pg => deleteDoc(doc(db, "pagos", pg.id))));
+      pagos = pagos.filter(pg => !(pg.prestamoId === prestamoId && Number(pg.cuotaNumero) === Number(numeroCuota)));
+    }
+
+    await updateDoc(doc(db, "prestamos", prestamoId), {
+      cuotas: prestamo.cuotas
+    });
+
+    await cargarPrestamos();
+    renderDetalleCliente();
+    mostrarNotificacion(`Cuota #${numeroCuota} eliminada.`, "success");
+  } catch (error) {
+    console.error(error);
+    mostrarNotificacion("Error al eliminar la cuota.", "error");
+  }
+}
+
+function recalcularEstadoCuota(prestamo, numeroCuota) {
+  if (!prestamo || !Array.isArray(prestamo.cuotas)) return;
+  const cuota = prestamo.cuotas.find(c => Number(c.numero) === Number(numeroCuota));
+  if (!cuota) return;
+
+  const pagosCuota = pagos.filter(pg => pg.prestamoId === prestamo.id && Number(pg.cuotaNumero) === Number(numeroCuota));
+  const totalPagado = pagosCuota.reduce((sum, pg) => sum + Number(pg.valor || 0), 0);
+
+  if (totalPagado <= 0) {
+    cuota.estado = 'pendiente';
+    cuota.abonado = 0;
+    delete cuota.fechaPago;
+  } else if (totalPagado >= cuota.valor) {
+    cuota.estado = 'pagada';
+    cuota.abonado = cuota.valor;
+    cuota.fechaPago = pagosCuota.sort((a, b) => a.fecha.localeCompare(b.fecha)).slice(-1)[0]?.fecha || cuota.fechaPago;
+  } else {
+    cuota.estado = 'parcial';
+    cuota.abonado = totalPagado;
+    cuota.fechaPago = pagosCuota.sort((a, b) => a.fecha.localeCompare(b.fecha)).slice(-1)[0]?.fecha || cuota.fechaPago;
+  }
+}
+
+async function eliminarPago(pagoId) {
+  const pago = pagos.find(pg => pg.id === pagoId);
+  if (!pago) {
+    mostrarNotificacion('Pago no encontrado.', 'error');
+    return;
+  }
+
+  if (!confirm(`¿Eliminar el pago de cuota #${pago.cuotaNumero} por ${formatCOP(pago.valor)}?`)) return;
+
+  try {
+    await deleteDoc(doc(db, 'pagos', pagoId));
+    pagos = pagos.filter(pg => pg.id !== pagoId);
+
+    const prestamo = prestamos.find(p => p.id === pago.prestamoId);
+    if (prestamo && pago.cuotaNumero != null) {
+      recalcularEstadoCuota(prestamo, pago.cuotaNumero);
+      await updateDoc(doc(db, 'prestamos', prestamo.id), { cuotas: prestamo.cuotas });
+      await cargarPrestamos();
+    }
+
+    renderDetalleCliente();
+    mostrarNotificacion('Pago eliminado.', 'success');
+  } catch (error) {
+    console.error(error);
+    mostrarNotificacion('Error al eliminar el pago.', 'error');
+  }
 }
 
 window.eliminarCuota          = eliminarCuota;
+window.eliminarPago           = eliminarPago;
 let editarPrestamoId = null;
 
 function abrirModalEditarPrestamo(prestamoId) {
@@ -878,6 +995,7 @@ window.seleccionarPrestamo    = seleccionarPrestamo;
 window.crearPrestamoCliente   = crearPrestamoCliente;
 window.pagarCuota             = pagarCuota;
 window.eliminarPrestamo       = eliminarPrestamo;
+window.eliminarCuota          = eliminarCuota;
 window.toggleManual           = toggleManual;
 window.renderManualCuotasRows = renderManualCuotasRows;
 window.confirmarPagoCuota     = confirmarPagoCuota;
