@@ -308,11 +308,6 @@ function renderReporte() {
     !clientesQuePageron.has(c.id) && tieneDeudaVencida(c.id)
   );
 
-  const clientesClavo = clientes.filter(c => esClavo(c.id));
-  const totalClavos = prestamos
-    .filter(p => p.estado === 'Activo' && clientesClavo.some(c => c.id === p.clienteId))
-    .reduce((s, p) => s + saldoReal(p), 0);
-
   function montoPagadoPorCliente(clienteId) {
     return pagosFiltrados
       .filter(p => p.clienteId === clienteId)
@@ -343,15 +338,6 @@ function renderReporte() {
         <div class="stat-label">Préstamos activos</div>
         <div class="stat-value">${prestamosActivos.length}</div>
       </div>
-      <div class="reporte-stat-card rojo">
-        <div class="stat-label">Clientes clavos</div>
-        <div class="stat-value">${clientesClavo.length}</div>
-      </div>
-      <div class="reporte-stat-card rojo">
-        <div class="stat-label">Dinero en clavos</div>
-        <div class="stat-value">${formatearMoneda(totalClavos)}</div>
-      </div>
-      
       <div class="reporte-stat-card rojo">
         <div class="stat-label">Total gastos</div>
         <div class="stat-value">${formatearMoneda(totalGastos)}</div>

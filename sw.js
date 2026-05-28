@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cobrodiario-cache-v4';
+const CACHE_NAME = 'cobrodiario-cache-v5';
 const URLS_TO_CACHE = [
   '/',
   'index.html',

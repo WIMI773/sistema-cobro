@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0a023a" />
+  <title>Cierre del día – Sistema de Cobro</title>
+  <link rel="icon" href="logocobro.png" />
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    .cierre-wrapper { max-width: 980px; margin: 18px auto 40px; padding: 0 16px; }
+    .cierre-header { display:flex; flex-wrap:wrap; justify-content:space-between; gap:16px; margin-bottom:18px; }
+    .cierre-header h1 { margin:0; }
+    .cierre-stats { display:grid; grid-template-columns: repeat(3, minmax(220px, 1fr)); gap: 16px; margin-bottom:20px; }
+    .cierre-card { border-radius: 18px; border:1px solid #e5e7eb; background:#fff; padding:18px 20px; box-shadow:0 8px 24px rgba(15, 23, 42, 0.04); }
+    .cierre-card h3 { margin:0 0 10px; font-size:1rem; color:#111827; }
+    .cierre-card .value { font-size:1.7rem; font-weight:800; color:#111827; }
+    .cierre-card .label { color:#6b7280; font-size:0.92rem; }
+    .cierre-actions { display:flex; flex-wrap:wrap; gap:12px; align-items:center; }
+    .cierre-actions label { font-weight:700; color:#111827; }
+    .cierre-actions input[type="date"] { border:1px solid #d1d5db; border-radius:10px; padding:10px 12px; background:#fff; }
+    .cierre-actions button { min-width:130px; }
+    .tabla-cierre-container { overflow-x:auto; border-radius:14px; background:#fff; border:1px solid #e5e7eb; }
+    .tabla-cierre-container table { width:100%; border-collapse:collapse; }
+    .tabla-cierre-container th,
+    .tabla-cierre-container td { padding:13px 14px; border-bottom:1px solid #e5e7eb; text-align:left; }
+    .tabla-cierre-container th { background:#f8fafc; font-weight:700; }
+    .nota-cierre { color:#475569; font-size:0.92rem; margin-top:10px; }
+    .resumen-prioridad { background:#f8fafc; border-radius:14px; padding:14px 16px; margin-top:20px; }
+    .resumen-prioridad strong { display:block; color:#111827; margin-bottom:6px; }
+    .resumen-prioridad p { margin:0; color:#475569; line-height:1.5; }
+    @media (max-width: 820px) {
+      .cierre-stats { grid-template-columns: 1fr; }
+    }
+    @media print {
+      body { background: #fff; color: #111827; }
+      .header-content, .header-actions, .cierre-actions button, .header-actions button { display: none !important; }
+      .cierre-wrapper { margin: 0; padding: 0; }
+      .cierre-card, .tabla-cierre-container { box-shadow: none !important; border-color: #d1d5db; }
+      .tabla-cierre-container th, .tabla-cierre-container td { padding: 10px; }
+      .reporte-placeholder, #toast { display: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="header-content">
+      <div>
+        <h1>Cierre del día</h1>
+        <div class="periodo-label" style="margin-top:6px;color:#6b7280;font-weight:600;">Informe diario contable para entregar cuentas claras.</div>
+      </div>
+      <div class="header-actions">
+        <span id="usuarioEmail"></span>
+        <button class="btn-secondary small" onclick="window.location.href='reportes.html'">← Reportes</button>
+        <button class="btn-secondary small" onclick="window.location.href='gastos.html'">💸 Gastos</button>
+        <button class="btn-secondary small" onclick="window.location.href='cartera.html'">🧾 Cartera</button>
+        <button class="btn-secondary small" onclick="window.location.href='clavos.html'">🪓 Clavos</button>
+        <button id="logoutButton" class="btn-danger small">Cerrar sesión</button>
+      </div>
+    </div>
+  </header>
+  <div class="cierre-wrapper">
+    <div class="cierre-header">
+      <div>
+        <h2>Resumen del cierre</h2>
+        <p class="nota-cierre">Selecciona la fecha del cierre para obtener el resumen del día y ver cuánto efectivo quedó disponible.</p>
+      </div>
+      <div class="cierre-actions">
+        <label for="fechaCierre">Fecha del cierre</label>
+        <input type="date" id="fechaCierre" />
+        <button class="btn-primary" onclick="actualizarCierre()">Actualizar</button>
+        <button id="exportarPdfButton" class="btn-secondary">Exportar PDF</button>
+      </div>
+    </div>
+
+    <div class="cierre-stats">
+      <div class="cierre-card">
+        <h3>Préstamos realizados</h3>
+        <div class="value" id="cierrePrestamosCount">0</div>
+        <div class="label">Cantidad de préstamos entregados</div>
+      </div>
+      <div class="cierre-card">
+        <h3>Valor en préstamos</h3>
+        <div class="value" id="cierrePrestamosValor">$0</div>
+        <div class="label">Total monto de préstamos</div>
+      </div>
+      <div class="cierre-card">
+        <h3>Dinero recaudado</h3>
+        <div class="value" id="cierreRecaudado">$0</div>
+        <div class="label">Pagos recibidos hoy</div>
+      </div>
+      <div class="cierre-card">
+        <h3>Gastos del día</h3>
+        <div class="value" id="cierreGastos">$0</div>
+        <div class="label">Gastos registrados hoy</div>
+      </div>
+      <div class="cierre-card">
+        <h3>Base diaria</h3>
+        <div class="value" id="cierreBase">$0</div>
+        <div class="label">Base registrada para el día</div>
+      </div>
+      <div class="cierre-card">
+        <h3>Efectivo neto</h3>
+        <div class="value" id="cierreEfectivo">$0</div>
+        <div class="label">Recaudado - Gastos</div>
+      </div>
+    </div>
+
+    <div class="cierre-card resumen-prioridad">
+      <strong>Dinero disponible para entrega</strong>
+      <p id="cierreDisponible">Calculando...</p>
+    </div>
+
+    <div class="cierre-card" style="margin-top:24px;">
+      <h3>Detalle del día</h3>
+      <div class="nota-cierre">Este reporte toma en cuenta los préstamos creados, los pagos recibidos, los gastos registrados y la base del día.</div>
+    </div>
+
+    <div class="tabla-cierre-container" style="margin-top:18px;">
+      <table>
+        <thead>
+          <tr>
+            <th>Tipo</th>
+            <th>Cantidad / Total</th>
+            <th>Detalle</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Préstamos del día</td>
+            <td id="cierreTblPrestamosCount">0</td>
+            <td id="cierreTblPrestamosDetalle">Listado de préstamos entregados.</td>
+          </tr>
+          <tr>
+            <td>Pagos recibidos</td>
+            <td id="cierreTblPagosValor">$0</td>
+            <td id="cierreTblPagosDetalle">Cantidad de pagos recibidos.</td>
+          </tr>
+          <tr>
+            <td>Gastos registrados</td>
+            <td id="cierreTblGastosValor">$0</td>
+            <td id="cierreTblGastosDetalle">Cantidad de gastos y categorías.</td>
+          </tr>
+          <tr>
+            <td>Base diaria</td>
+            <td id="cierreTblBaseValor">$0</td>
+            <td id="cierreTblBaseDetalle">Base usada para el cierre.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div id="cierreDetalleExtras" class="cierre-card" style="margin-top:20px; display:none;"></div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+  <script type="module" src="cierre.js"></script>
+</body>
+</html>

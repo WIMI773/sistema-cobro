@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0a023a" />
+  <title>Clavos – Sistema de Cobro</title>
+  <link rel="icon" href="logocobro.png" />
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    .clavos-wrapper { max-width: 940px; margin: 18px auto 40px; padding: 0 16px; }
+    .clavos-summary { display: grid; grid-template-columns: repeat(3, minmax(180px, 1fr)); gap: 14px; margin-bottom: 18px; }
+    .clavos-card { background:#f8fafc; border:1px solid #e5e7eb; border-radius:14px; padding:18px 16px; }
+    .clavos-card h3 { margin:0 0 10px; font-size:1rem; color:#111827; }
+    .clavos-card p { margin:0; color:#475569; font-size:0.92rem; }
+    .clavos-card .value { margin-top:12px; font-size:1.5rem; font-weight:800; color:#111827; }
+    .tabla-clavos-container { overflow-x:auto; border-radius: 10px; }
+    .tabla-clavos-container table { width:100%; border-collapse:collapse; }
+    .tabla-clavos-container th, .tabla-clavos-container td { padding:12px 10px; border-bottom:1px solid #e5e7eb; text-align:left; }
+    .tabla-clavos-container th { font-weight:700; color:#111827; background:#f8fafc; }
+    .badge-mora { display:inline-flex; align-items:center; justify-content:center; min-width:30px; padding:4px 8px; border-radius:999px; background:#fef2f2; color:#b91c1c; font-size:0.8rem; font-weight:700; }
+    .clavos-note { margin-top:10px; color:#6b7280; font-size:0.9rem; }
+    @media (max-width: 720px) {
+      .clavos-summary { grid-template-columns: 1fr; }
+      .clavos-card { padding:14px; }
+      .tabla-clavos-container th, .tabla-clavos-container td { padding:10px 8px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="header-content">
+      <div>
+        <h1>Clavos</h1>
+        <div class="periodo-label" style="margin-top:6px;color:#6b7280;font-weight:600;">Resumen profesional de clientes y préstamos en clavos</div>
+      </div>
+      <div class="header-actions">
+        <span id="usuarioEmail"></span>
+        <button class="btn-secondary small" onclick="window.location.href='reportes.html'">← Reportes</button>
+        <button class="btn-secondary small" onclick="window.location.href='gastos.html'">💸 Gastos</button>
+        <button class="btn-secondary small" onclick="window.location.href='cartera.html'">🧾 Cartera</button>
+        <button id="logoutButton" class="btn-danger small">Cerrar sesión</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="clavos-wrapper">
+    <div id="clavosContenido">
+      <div class="reporte-placeholder">Cargando clavos...</div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+  <script type="module" src="clavos.js"></script>
+</body>
+</html>
