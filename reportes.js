@@ -352,10 +352,6 @@ function renderReporte() {
         <div class="stat-value">${formatearMoneda(totalClavos)}</div>
       </div>
       
-      <div class="reporte-stat-card ambar">
-        <div class="stat-label">Cartera</div>
-        <div class="stat-value">${formatearMoneda(totalPrestado)}</div>
-      </div>
       <div class="reporte-stat-card rojo">
         <div class="stat-label">Total gastos</div>
         <div class="stat-value">${formatearMoneda(totalGastos)}</div>
@@ -386,31 +382,48 @@ function renderReporte() {
       <h3>💸 Préstamos del período (${prestamosFiltrados.length})</h3>
       ${prestamosFiltrados.length === 0
         ? `<div class="reporte-placeholder">No hay préstamos en este período.</div>`
-        : `<div class="tabla-pagos-container">
-            <table>
-              <thead>
+        : (() => {
+            const max = 4;
+            const sorted = prestamosFiltrados.sort((a, b) => normalizarFecha(b.fechaPrestamo || b.fechaInicio || b.fecha).localeCompare(normalizarFecha(a.fechaPrestamo || a.fechaInicio || a.fecha)));
+            const preview = sorted.slice(0, max).map(p => {
+              const cliente = clientes.find(c => c.id === p.clienteId);
+              return `
                 <tr>
-                  <th>Cliente</th>
-                  <th>Monto</th>
-                  <th>Fecha</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${prestamosFiltrados
-                  .sort((a, b) => normalizarFecha(b.fechaPrestamo || b.fechaInicio || b.fecha).localeCompare(normalizarFecha(a.fechaPrestamo || a.fechaInicio || a.fecha)))
-                  .map(p => {
-                    const cliente = clientes.find(c => c.id === p.clienteId);
-                    return `
-                      <tr>
-                        <td>${cliente ? cliente.nombre : '-'}</td>
-                        <td>${formatearMoneda(p.monto)}</td>
-                        <td>${formatearFecha(normalizarFecha(p.fechaPrestamo || p.fechaInicio || p.fecha))}</td>
-                      </tr>
-                    `;
-                  }).join('')}
-              </tbody>
-            </table>
-          </div>`
+                  <td>${cliente ? cliente.nombre : '-'}</td>
+                  <td>${formatearMoneda(p.monto)}</td>
+                  <td>${formatearFecha(normalizarFecha(p.fechaPrestamo || p.fechaInicio || p.fecha))}</td>
+                </tr>`;
+            }).join('');
+            const full = sorted.map(p => {
+              const cliente = clientes.find(c => c.id === p.clienteId);
+              return `
+                <tr>
+                  <td>${cliente ? cliente.nombre : '-'}</td>
+                  <td>${formatearMoneda(p.monto)}</td>
+                  <td>${formatearFecha(normalizarFecha(p.fechaPrestamo || p.fechaInicio || p.fecha))}</td>
+                </tr>`;
+            }).join('');
+            return `
+              <div class="tabla-pagos-container">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Cliente</th>
+                      <th>Monto</th>
+                      <th>Fecha</th>
+                    </tr>
+                  </thead>
+                  <tbody id="prestamosFiltrados_preview">
+                    ${preview}
+                    ${sorted.length > max ? `<tr><td colspan="3" style="text-align:center;"><button style="background:none;border:none;color:#2563eb;font-weight:700;cursor:pointer;padding:6px 0;" id="prestamosFiltrados_btn" onclick="toggleVerMas('prestamosFiltrados')">Ver más</button></td></tr>` : ''}
+                  </tbody>
+                  <tbody id="prestamosFiltrados_full" style="display:none;">
+                    ${full}
+                    ${sorted.length > max ? `<tr><td colspan="3" style="text-align:center;"><button style="background:none;border:none;color:#2563eb;font-weight:700;cursor:pointer;padding:6px 0;" onclick="toggleVerMas('prestamosFiltrados')">Ver menos</button></td></tr>` : ''}
+                  </tbody>
+                </table>
+              </div>`;
+        })()
       }
     </div>
 
@@ -418,19 +431,39 @@ function renderReporte() {
       <h3>✅ Clientes que pagaron (${clientesConPago.length})</h3>
       ${clientesConPago.length === 0
         ? `<div class="reporte-placeholder">Ningún cliente pagó en este período.</div>`
-        : clientesConPago.map(c => `
-          <div class="cliente-fila pagado">
-            <span class="dot verde"></span>
-            <img class="cliente-fila-avatar"
-              src="${c.foto || 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80'}"
-              alt="${c.nombre}" />
-            <div class="cliente-fila-info">
-              <strong>${c.nombre}</strong>
-              <span>${c.telefono || '-'}</span>
-            </div>
-            <div class="cliente-fila-monto">${formatearMoneda(montoPagadoPorCliente(c.id))}</div>
-          </div>
-        `).join('')
+        : (() => {
+            const max = 4;
+            const previewItems = clientesConPago.slice(0, max).map(c => `
+              <div class="cliente-fila pagado">
+                <span class="dot verde"></span>
+                <img class="cliente-fila-avatar"
+                  src="${c.foto || 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80'}"
+                  alt="${c.nombre}" />
+                <div class="cliente-fila-info">
+                  <strong>${c.nombre}</strong>
+                  <span>${c.telefono || '-'}</span>
+                </div>
+                <div class="cliente-fila-monto">${formatearMoneda(montoPagadoPorCliente(c.id))}</div>
+              </div>
+            `).join('');
+            const fullItems = clientesConPago.map(c => `
+              <div class="cliente-fila pagado">
+                <span class="dot verde"></span>
+                <img class="cliente-fila-avatar"
+                  src="${c.foto || 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80'}"
+                  alt="${c.nombre}" />
+                <div class="cliente-fila-info">
+                  <strong>${c.nombre}</strong>
+                  <span>${c.telefono || '-'}</span>
+                </div>
+                <div class="cliente-fila-monto">${formatearMoneda(montoPagadoPorCliente(c.id))}</div>
+              </div>
+            `).join('');
+            return `
+              <div id="clientesConPago_preview">${previewItems}${clientesConPago.length > max ? `<div style="text-align:center;margin-top:8px;"><button style="background:none;border:none;color:#2563eb;font-weight:700;cursor:pointer;padding:6px 0;" id="clientesConPago_btn" onclick="toggleVerMas('clientesConPago')">Ver más</button></div>` : ''}</div>
+              <div id="clientesConPago_full" style="display:none;">${fullItems}${clientesConPago.length > max ? `<div style="text-align:center;margin-top:8px;"><button style="background:none;border:none;color:#2563eb;font-weight:700;cursor:pointer;padding:6px 0;" onclick="toggleVerMas('clientesConPago')">Ver menos</button></div>` : ''}</div>
+            `;
+        })()
       }
     </div>
 
@@ -438,19 +471,39 @@ function renderReporte() {
       <h3>❌ Clientes sin pago (${clientesSinPago.length})</h3>
       ${clientesSinPago.length === 0
         ? `<div class="reporte-placeholder">No hay clientes con cuotas vencidas sin pagar. 🎉</div>`
-        : clientesSinPago.map(c => `
-            <div class="cliente-fila no-pago">
-              <span class="dot rojo"></span>
-              <img class="cliente-fila-avatar"
-                src="${c.foto || 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80'}"
-                alt="${c.nombre}" />
-              <div class="cliente-fila-info">
-                <strong>${c.nombre}</strong>
-                <span>${c.telefono || '-'}</span>
+        : (() => {
+            const max = 4;
+            const preview = clientesSinPago.slice(0, max).map(c => `
+              <div class="cliente-fila no-pago">
+                <span class="dot rojo"></span>
+                <img class="cliente-fila-avatar"
+                  src="${c.foto || 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80'}"
+                  alt="${c.nombre}" />
+                <div class="cliente-fila-info">
+                  <strong>${c.nombre}</strong>
+                  <span>${c.telefono || '-'}</span>
+                </div>
+                <div class="cliente-fila-monto" style="color:#b91c1c;">Pendiente</div>
               </div>
-              <div class="cliente-fila-monto" style="color:#b91c1c;">Pendiente</div>
-            </div>
-          `).join('')
+            `).join('');
+            const full = clientesSinPago.map(c => `
+              <div class="cliente-fila no-pago">
+                <span class="dot rojo"></span>
+                <img class="cliente-fila-avatar"
+                  src="${c.foto || 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80'}"
+                  alt="${c.nombre}" />
+                <div class="cliente-fila-info">
+                  <strong>${c.nombre}</strong>
+                  <span>${c.telefono || '-'}</span>
+                </div>
+                <div class="cliente-fila-monto" style="color:#b91c1c;">Pendiente</div>
+              </div>
+            `).join('');
+            return `
+              <div id="clientesSinPago_preview">${preview}${clientesSinPago.length > max ? `<div style="text-align:center;margin-top:8px;"><button style="background:none;border:none;color:#2563eb;font-weight:700;cursor:pointer;padding:6px 0;" id="clientesSinPago_btn" onclick="toggleVerMas('clientesSinPago')">Ver más</button></div>` : ''}</div>
+              <div id="clientesSinPago_full" style="display:none;">${full}${clientesSinPago.length > max ? `<div style="text-align:center;margin-top:8px;"><button style="background:none;border:none;color:#2563eb;font-weight:700;cursor:pointer;padding:6px 0;" onclick="toggleVerMas('clientesSinPago')">Ver menos</button></div>` : ''}</div>
+            `;
+        })()
       }
     </div>
 
@@ -458,33 +511,51 @@ function renderReporte() {
       <h3>📋 Detalle de pagos del período</h3>
       ${pagosFiltrados.length === 0
         ? `<div class="reporte-placeholder">No hay pagos en este período.</div>`
-        : `<div class="tabla-pagos-container">
-            <table>
-              <thead>
+        : (() => {
+            const max = 6;
+            const sorted = pagosFiltrados.sort((a, b) => normalizarFecha(b.fecha).localeCompare(normalizarFecha(a.fecha)));
+            const preview = sorted.slice(0, max).map(p => {
+              const cliente = clientes.find(c => c.id === p.clienteId);
+              return `
                 <tr>
-                  <th>Cliente</th>
-                  <th>Cuota N°</th>
-                  <th>Valor pagado</th>
-                  <th>Fecha</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${pagosFiltrados
-                  .sort((a, b) => normalizarFecha(b.fecha).localeCompare(normalizarFecha(a.fecha)))
-                  .map(p => {
-                    const cliente = clientes.find(c => c.id === p.clienteId);
-                    return `
-                      <tr>
-                        <td>${cliente ? cliente.nombre : '-'}</td>
-                        <td>${p.cuotaNumero || '-'}</td>
-                        <td>${formatearMoneda(p.valor)}</td>
-                        <td>${formatearFecha(normalizarFecha(p.fecha))}</td>
-                      </tr>
-                    `;
-                  }).join('')}
-              </tbody>
-            </table>
-          </div>`
+                  <td>${cliente ? cliente.nombre : '-'}</td>
+                  <td>${p.cuotaNumero || '-'}</td>
+                  <td>${formatearMoneda(p.valor)}</td>
+                  <td>${formatearFecha(normalizarFecha(p.fecha))}</td>
+                </tr>`;
+            }).join('');
+            const full = sorted.map(p => {
+              const cliente = clientes.find(c => c.id === p.clienteId);
+              return `
+                <tr>
+                  <td>${cliente ? cliente.nombre : '-'}</td>
+                  <td>${p.cuotaNumero || '-'}</td>
+                  <td>${formatearMoneda(p.valor)}</td>
+                  <td>${formatearFecha(normalizarFecha(p.fecha))}</td>
+                </tr>`;
+            }).join('');
+            return `
+              <div class="tabla-pagos-container">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Cliente</th>
+                      <th>Cuota N°</th>
+                      <th>Valor pagado</th>
+                      <th>Fecha</th>
+                    </tr>
+                  </thead>
+                  <tbody id="pagosFiltrados_preview">
+                    ${preview}
+                    ${sorted.length > max ? `<tr><td colspan="4" style="text-align:center;"><button style="background:none;border:none;color:#2563eb;font-weight:700;cursor:pointer;padding:6px 0;" id="pagosFiltrados_btn" onclick="toggleVerMas('pagosFiltrados')">Ver más</button></td></tr>` : ''}
+                  </tbody>
+                  <tbody id="pagosFiltrados_full" style="display:none;">
+                    ${full}
+                    ${sorted.length > max ? `<tr><td colspan="4" style="text-align:center;"><button style="background:none;border:none;color:#2563eb;font-weight:700;cursor:pointer;padding:6px 0;" onclick="toggleVerMas('pagosFiltrados')">Ver menos</button></td></tr>` : ''}
+                  </tbody>
+                </table>
+              </div>`;
+        })()
       }
     </div>
 
@@ -492,40 +563,62 @@ function renderReporte() {
       <h3>💰 Préstamos activos y saldos</h3>
       ${prestamosActivos.length === 0
         ? `<div class="reporte-placeholder">No hay préstamos activos.</div>`
-        : `<div class="tabla-pagos-container">
-            <table>
-              <thead>
+        : (() => {
+            const max = 6;
+            const preview = prestamosActivos.slice(0, max).map(p => {
+              const cliente = clientes.find(c => c.id === p.clienteId);
+              const cobrado = totalCobradoReal(p.id);
+              const saldo   = saldoReal(p);
+              const mora    = Array.isArray(p.cuotas) ? p.cuotas.filter(c => c.estado === 'mora').length : 0;
+              return `
                 <tr>
-                  <th>Cliente</th>
-                  <th>Total</th>
-                  <th>Cobrado</th>
-                  <th>Saldo</th>
-                  <th>Mora</th>
-                  <th>Frecuencia</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${prestamosActivos.map(p => {
-                  const cliente = clientes.find(c => c.id === p.clienteId);
-                  const cobrado = totalCobradoReal(p.id);
-                  const saldo   = saldoReal(p);
-                  const mora    = Array.isArray(p.cuotas)
-                    ? p.cuotas.filter(c => c.estado === 'mora').length
-                    : 0;
-                  return `
+                  <td>${cliente ? cliente.nombre : '-'}</td>
+                  <td>${formatearMoneda(p.total)}</td>
+                  <td>${formatearMoneda(cobrado)}</td>
+                  <td>${formatearMoneda(saldo)}</td>
+                  <td>${mora > 0 ? `<span class="badge mora">${mora}</span>` : '0'}</td>
+                  <td>${p.frecuencia || '-'}</td>
+                </tr>`;
+            }).join('');
+            const full = prestamosActivos.map(p => {
+              const cliente = clientes.find(c => c.id === p.clienteId);
+              const cobrado = totalCobradoReal(p.id);
+              const saldo   = saldoReal(p);
+              const mora    = Array.isArray(p.cuotas) ? p.cuotas.filter(c => c.estado === 'mora').length : 0;
+              return `
+                <tr>
+                  <td>${cliente ? cliente.nombre : '-'}</td>
+                  <td>${formatearMoneda(p.total)}</td>
+                  <td>${formatearMoneda(cobrado)}</td>
+                  <td>${formatearMoneda(saldo)}</td>
+                  <td>${mora > 0 ? `<span class="badge mora">${mora}</span>` : '0'}</td>
+                  <td>${p.frecuencia || '-'}</td>
+                </tr>`;
+            }).join('');
+            return `
+              <div class="tabla-pagos-container">
+                <table>
+                  <thead>
                     <tr>
-                      <td>${cliente ? cliente.nombre : '-'}</td>
-                      <td>${formatearMoneda(p.total)}</td>
-                      <td>${formatearMoneda(cobrado)}</td>
-                      <td>${formatearMoneda(saldo)}</td>
-                      <td>${mora > 0 ? `<span class="badge mora">${mora}</span>` : '0'}</td>
-                      <td>${p.frecuencia || '-'}</td>
+                      <th>Cliente</th>
+                      <th>Total</th>
+                      <th>Cobrado</th>
+                      <th>Saldo</th>
+                      <th>Mora</th>
+                      <th>Frecuencia</th>
                     </tr>
-                  `;
-                }).join('')}
-              </tbody>
-            </table>
-          </div>`
+                  </thead>
+                  <tbody id="prestamosActivos_preview">
+                    ${preview}
+                    ${prestamosActivos.length > max ? `<tr><td colspan="6" style="text-align:center;"><button style="background:none;border:none;color:#2563eb;font-weight:700;cursor:pointer;padding:6px 0;" id="prestamosActivos_btn" onclick="toggleVerMas('prestamosActivos')">Ver más</button></td></tr>` : ''}
+                  </tbody>
+                  <tbody id="prestamosActivos_full" style="display:none;">
+                    ${full}
+                    ${prestamosActivos.length > max ? `<tr><td colspan="6" style="text-align:center;"><button style="background:none;border:none;color:#2563eb;font-weight:700;cursor:pointer;padding:6px 0;" onclick="toggleVerMas('prestamosActivos')">Ver menos</button></td></tr>` : ''}
+                  </tbody>
+                </table>
+              </div>`;
+        })()
       }
     </div>
 
@@ -588,6 +681,28 @@ window.aplicarRango = function() {
     return;
   }
   renderReporte();
+};
+
+// Alterna entre vista previa y vista completa para secciones largas
+window.toggleVerMas = function(prefix) {
+  try {
+    const preview = document.getElementById(prefix + '_preview');
+    const full    = document.getElementById(prefix + '_full');
+    const btn     = document.getElementById(prefix + '_btn');
+    if (!preview || !full) return;
+    const showingPreview = preview.style.display !== 'none';
+    if (showingPreview) {
+      preview.style.display = 'none';
+      full.style.display = '';
+      if (btn) btn.style.display = 'none';
+    } else {
+      preview.style.display = '';
+      full.style.display = 'none';
+      if (btn) btn.style.display = '';
+    }
+  } catch (e) {
+    console.error('toggleVerMas error', e);
+  }
 };
 
 onAuthChange(async user => {

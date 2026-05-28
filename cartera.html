@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0a023a" />
+  <title>Cartera – Sistema de Cobro</title>
+  <link rel="icon" href="logocobro.png" />
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    .cartera-wrapper { max-width: 920px; margin: 18px auto 40px; padding: 0 16px; }
+    .cartera-header { display:flex; justify-content:space-between; align-items:center; gap:12px; }
+    .cartera-total { font-size:1.3rem; font-weight:800; color:#b45309; }
+    .tabla-pagos-container table th, .tabla-pagos-container table td { text-align:left; padding:8px 10px; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="header-content">
+      <div>
+        <h1>Cartera</h1>
+        <div class="periodo-label" style="margin-top:6px;color:#6b7280;font-weight:600;">Resumen de préstamos activos y saldos</div>
+      </div>
+      <div class="header-actions">
+        <span id="usuarioEmail"></span>
+        <button class="btn-secondary small" onclick="window.location.href='reportes.html'">← Reportes</button>
+        <button class="btn-secondary small" onclick="window.location.href='gastos.html'">💸 Gastos</button>
+        <button id="logoutButton" class="btn-danger small">Cerrar sesión</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="cartera-wrapper">
+    <div id="carteraContenido">
+      <div class="reporte-placeholder">Cargando cartera...</div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+  <script type="module" src="cartera.js"></script>
+</body>
+</html>
