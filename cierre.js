@@ -90,8 +90,10 @@ function renderCierre(fechaCierre) {
   const totalRecaudado = pagosDelDia.reduce((sum, p) => sum + Number(p.valor || 0), 0);
   const totalGastos = gastosDelDia.reduce((sum, g) => sum + Number(g.valor || 0), 0);
   const baseDia = baseParaFecha(fechaCierre);
-  const efectivoNeto = totalRecaudado - totalGastos;
-  const disponible = efectivoNeto - baseDia;
+  // Efectivo en caja = base inicial + recaudado - préstamos entregados - gastos
+  const efectivoNeto = Number(baseDia || 0) + Number(totalRecaudado || 0) - Number(totalPrestamos || 0) - Number(totalGastos || 0);
+  // Disponible respecto a la base: positivo = sobra para entregar, negativo = falta para cubrir la base
+  const disponible = efectivoNeto - Number(baseDia || 0);
 
   document.getElementById('cierrePrestamosCount').textContent = prestamosDelDia.length;
   document.getElementById('cierrePrestamosValor').textContent = formatearMoneda(totalPrestamos);

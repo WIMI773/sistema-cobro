@@ -120,6 +120,13 @@
           placeholder="Buscar por nombre o cédula"
           oninput="buscarClientes()"
         />
+        <label style="display:block;margin-top:12px;font-weight:700;">Filtrar clientes</label>
+        <select id="filtroClientes" onchange="cambiarFiltroClientes(this.value)" style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid #d1d5db;background:#fff;">
+          <option value="todos">Todos</option>
+          <option value="activos" selected>Activos</option>
+          <option value="inactivos">Inactivos</option>
+          <option value="clavos">Clavos</option>
+        </select>
       </div>
 
       <div id="nuevoClienteCard" class="card card-small hidden">

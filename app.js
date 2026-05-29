@@ -25,6 +25,7 @@ let pagos = [];
 
 let clienteSeleccionadoId = null;
 let terminoBusqueda = "";
+let filtroClientes = "activos";
 let clienteFotoDataUrl = "";
 let userId = null;
 
@@ -195,6 +196,29 @@ function buscarClientes() {
   renderClientes();
 }
 
+function cambiarFiltroClientes(valor) {
+  filtroClientes = valor || "todos";
+  renderClientes();
+}
+
+function clienteTienePrestamoActivo(clienteId) {
+  return prestamos.some(p => p.clienteId === clienteId && p.estado === 'Activo');
+}
+
+function filtrarPorEstadoCliente(cliente) {
+  switch (filtroClientes) {
+    case 'activos':
+      return clienteTienePrestamoActivo(cliente.id) && !esClavo(cliente.id);
+    case 'inactivos':
+      return !clienteTienePrestamoActivo(cliente.id) && !esClavo(cliente.id);
+    case 'clavos':
+      return esClavo(cliente.id);
+    case 'todos':
+    default:
+      return true;
+  }
+}
+
 function handleClienteFotoFile(event) {
   const file = event.target.files?.[0];
   if (!file) return;
@@ -249,10 +273,12 @@ function renderClientes() {
   if (!listaCont) return;
 
   const filtro = terminoBusqueda.trim().toLowerCase();
-  const lista = clientes.filter(c => {
+  let lista = clientes.filter(c => {
     if (!filtro) return true;
     return c.nombre.toLowerCase().includes(filtro) || c.cedula.toLowerCase().includes(filtro);
   });
+
+  lista = lista.filter(c => filtrarPorEstadoCliente(c));
 
   if (lista.length === 0) {
     listaCont.innerHTML = `<div class="placeholder">No se encontraron clientes</div>`;
@@ -327,6 +353,7 @@ function seleccionarCliente(id) {
 }
 
 window.buscarClientes = buscarClientes;
+window.cambiarFiltroClientes = cambiarFiltroClientes;
 window.toggleNuevoCliente = toggleNuevoCliente;
 window.ocultarNuevoCliente = ocultarNuevoCliente;
 window.guardarCliente = guardarCliente;
