@@ -67,7 +67,11 @@ async function cargarClientes() {
   const snapshot = await getDocs(consulta);
   clientes = snapshot.docs
     .map(d => ({ id: d.id, ...d.data() }))
-    .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es', { sensitivity: 'base' }));
+    .sort((a, b) => {
+      const aOrden = a.createdAt || Number(a.id) || 0;
+      const bOrden = b.createdAt || Number(b.id) || 0;
+      return aOrden - bOrden;
+    });
 }
 
 async function cargarPrestamos() {
@@ -168,7 +172,7 @@ async function guardarCliente() {
   }
 
   const id = Date.now().toString();
-  const cliente = { nombre, cedula, telefono, direccion, foto, userId };
+  const cliente = { nombre, cedula, telefono, direccion, foto, userId, createdAt: Date.now() };
 
   await setDoc(doc(db, "clientes", id), cliente);
 
