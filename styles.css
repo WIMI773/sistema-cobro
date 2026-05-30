@@ -426,13 +426,23 @@ button.btn-secondary:hover {
   padding: 20px;
   border-radius: 18px;
   border: 1px solid #e5e7eb;
-  cursor: pointer;
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  cursor: move;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+  position: relative;
+  user-select: none;
 }
 
 .client-card:hover {
   transform: translateY(-2px);
   box-shadow: 0 18px 30px rgba(15, 23, 42, 0.08);
+}
+
+.client-card[draggable="true"] {
+  cursor: grab;
+}
+
+.client-card[draggable="true"]:active {
+  cursor: grabbing;
 }
 
 .client-card-avatar {

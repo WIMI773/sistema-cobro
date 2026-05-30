@@ -6,7 +6,8 @@ import {
   getDocs,
   setDoc,
   doc,
-  deleteDoc
+  deleteDoc,
+  updateDoc
 } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 
 if ('serviceWorker' in navigator) {
@@ -28,6 +29,10 @@ let terminoBusqueda = "";
 let filtroClientes = "activos";
 let clienteFotoDataUrl = "";
 let userId = null;
+
+// Para drag and drop
+let draggedClienteId = null;
+let draggedIndex = null;
 
 onAuthChange(async user => {
   if (!user) {
@@ -68,8 +73,9 @@ async function cargarClientes() {
   clientes = snapshot.docs
     .map(d => ({ id: d.id, ...d.data() }))
     .sort((a, b) => {
-      const aOrden = a.createdAt || Number(a.id) || 0;
-      const bOrden = b.createdAt || Number(b.id) || 0;
+      // Ordenar por el campo "orden" si existe, si no usar createdAt
+      const aOrden = typeof a.orden === 'number' ? a.orden : (a.createdAt || Number(a.id) || 0);
+      const bOrden = typeof b.orden === 'number' ? b.orden : (b.createdAt || Number(b.id) || 0);
       return aOrden - bOrden;
     });
 }
@@ -172,7 +178,12 @@ async function guardarCliente() {
   }
 
   const id = Date.now().toString();
-  const cliente = { nombre, cedula, telefono, direccion, foto, userId, createdAt: Date.now() };
+  // Calcular el orden: será el máximo orden actual + 1
+  const maxOrden = clientes.length > 0 
+    ? Math.max(...clientes.map(c => typeof c.orden === 'number' ? c.orden : 0)) 
+    : 0;
+  
+  const cliente = { nombre, cedula, telefono, direccion, foto, userId, createdAt: Date.now(), orden: maxOrden + 1 };
 
   await setDoc(doc(db, "clientes", id), cliente);
 
@@ -264,6 +275,95 @@ function handleClienteFotoFile(event) {
   event.target.value = "";
 }
 
+// ─── Funciones para Drag & Drop ───────────────────────────────────────────
+function handleClienteDragStart(event, clienteId, index) {
+  draggedClienteId = clienteId;
+  draggedIndex = index;
+  event.dataTransfer.effectAllowed = "move";
+  event.target.closest('.client-card').style.opacity = '0.5';
+}
+
+function handleClienteDragOver(event) {
+  event.preventDefault();
+  event.dataTransfer.dropEffect = "move";
+  const card = event.target.closest('.client-card');
+  if (card && draggedClienteId) {
+    card.style.borderTop = "3px solid #3b82f6";
+  }
+}
+
+function handleClienteDragLeave(event) {
+  const card = event.target.closest('.client-card');
+  if (card) {
+    card.style.borderTop = "";
+  }
+}
+
+function handleClienteDrop(event, dropIndex) {
+  event.preventDefault();
+  const card = event.target.closest('.client-card');
+  if (card) {
+    card.style.borderTop = "";
+  }
+
+  if (draggedIndex === null || draggedClienteId === null) return;
+  if (draggedIndex === dropIndex) {
+    draggedClienteId = null;
+    draggedIndex = null;
+    return;
+  }
+
+  reordenarClientes(draggedIndex, dropIndex);
+}
+
+function handleClienteDragEnd(event) {
+  event.target.closest('.client-card').style.opacity = '1';
+  const cards = document.querySelectorAll('.client-card');
+  cards.forEach(card => card.style.borderTop = "");
+  draggedClienteId = null;
+  draggedIndex = null;
+}
+
+async function reordenarClientes(fromIndex, toIndex) {
+  // Obtener la lista filtrada actual para mantener el filtro
+  const filtro = terminoBusqueda.trim().toLowerCase();
+  let listaFiltrada = clientes.filter(c => {
+    if (!filtro) return true;
+    return c.nombre.toLowerCase().includes(filtro) || c.cedula.toLowerCase().includes(filtro);
+  });
+  listaFiltrada = listaFiltrada.filter(c => filtrarPorEstadoCliente(c));
+
+  if (fromIndex >= listaFiltrada.length || toIndex >= listaFiltrada.length) return;
+
+  const clienteMovido = listaFiltrada[fromIndex];
+  const clienteDestino = listaFiltrada[toIndex];
+
+  // Crear un array de todos los clientes ordenados
+  const clientesOrdenados = [...clientes];
+  const indexMovidoEnTotal = clientesOrdenados.findIndex(c => c.id === clienteMovido.id);
+  const indexDestinoEnTotal = clientesOrdenados.findIndex(c => c.id === clienteDestino.id);
+
+  // Mover el cliente en el array
+  clientesOrdenados.splice(indexMovidoEnTotal, 1);
+  clientesOrdenados.splice(indexDestinoEnTotal, 0, clienteMovido);
+
+  // Actualizar los órdenes en Firebase
+  try {
+    const actualizaciones = clientesOrdenados.map((c, idx) => 
+      updateDoc(doc(db, "clientes", c.id), { orden: idx + 1 })
+    );
+    await Promise.all(actualizaciones);
+    
+    // Recargar y renderizar
+    await cargarClientes();
+    renderClientes();
+  } catch (error) {
+    console.error("Error al reordenar:", error);
+    alert("Error al reordenar clientes");
+  }
+}
+// ──────────────────────────────────────────────────────────────────────────
+
 function toggleNuevoCliente() {
   document.getElementById("nuevoClienteCard").classList.toggle("hidden");
 }
@@ -289,7 +389,7 @@ function renderClientes() {
     return;
   }
 
-  listaCont.innerHTML = lista.map(c => {
+  listaCont.innerHTML = lista.map((c, index) => {
     const pagoHoy = clientePagoHoy(c.id);
     const clavo = esClavo(c.id);
     const fotoCliente = c.foto || 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80';
@@ -305,8 +405,20 @@ function renderClientes() {
       badge = `<span class="badge-pagado">&#10003; Pago hoy</span>`;
     }
 
+    const numeroCliente = index + 1;
+
     return `
-      <article class="client-card${claseExtra}" onclick="seleccionarCliente('${c.id}')">
+      <article class="client-card${claseExtra}" 
+        draggable="true"
+        data-cliente-id="${c.id}"
+        data-cliente-index="${index}"
+        ondragstart="handleClienteDragStart(event, '${c.id}', ${index})"
+        ondragover="handleClienteDragOver(event)"
+        ondrop="handleClienteDrop(event, ${index})"
+        ondragend="handleClienteDragEnd(event)"
+        ondragleave="handleClienteDragLeave(event)"
+        onclick="seleccionarCliente('${c.id}')">
+        <div style="position: absolute; top: 8px; left: 8px; background: #3b82f6; color: white; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 14px; z-index: 10;">${numeroCliente}</div>
         <img class="client-card-avatar" src="${fotoCliente}" alt="Foto de ${c.nombre}" />
         <div class="client-card-content">
           <h3>${c.nombre} ${badge}</h3>
@@ -364,6 +476,11 @@ window.guardarCliente = guardarCliente;
 window.seleccionarCliente = seleccionarCliente;
 window.eliminarCliente = eliminarCliente;
 window.handleClienteFotoFile = handleClienteFotoFile;
+window.handleClienteDragStart = handleClienteDragStart;
+window.handleClienteDragOver = handleClienteDragOver;
+window.handleClienteDrop = handleClienteDrop;
+window.handleClienteDragEnd = handleClienteDragEnd;
+window.handleClienteDragLeave = handleClienteDragLeave;
 
 // Cuando el usuario vuelve con el boton Atras, el navegador puede restaurar
 // la pagina desde bfcache sin re-ejecutar el JS. Esto fuerza recargar los
