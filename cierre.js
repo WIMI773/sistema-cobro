@@ -1,5 +1,5 @@
 import { db, logout, onAuthChange } from "./firebase.js";
-import { collection, query, where, getDocs, doc, getDoc } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+import { collection, query, where, getDocs, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
 
 let userId = null;
 let clientes = [];
@@ -58,6 +58,85 @@ function baseParaFecha(fecha) {
   return Number(valor || 0);
 }
 
+async function guardarBaseDiaria(fecha, valor) {
+  if (!fecha) return;
+  const numero = Number(valor || 0);
+  basesDaily[fecha] = numero;
+  localStorage.setItem(claveBaseDiaria(fecha), String(numero));
+
+  if (!userId || !baseFirestorePermisos) return;
+  try {
+    await setDoc(doc(db, 'bases', `base_${userId}_${fecha}`), {
+      userId,
+      fecha,
+      valor: numero,
+      actualizado: new Date().toISOString()
+    });
+  } catch (err) {
+    if (String(err).includes('Missing or insufficient permissions')) {
+      baseFirestorePermisos = false;
+      mostrarToast('Base guardada localmente. Ajusta permisos de Firestore para guardarla en la nube.');
+    } else {
+      console.warn('No se pudo guardar la base en Firestore:', err);
+    }
+  }
+}
+
+function fechaAnterior(fecha) {
+  const d = new Date(fecha);
+  d.setDate(d.getDate() - 1);
+  return fechaLocal(d);
+}
+
+function calcularEfectivoNetoDeFecha(fecha) {
+  const pagosDelDia = pagos.filter(p => enRango(p.fecha, fecha));
+  const gastosDelDia = gastos.filter(g => enRango(g.fecha, fecha));
+  const prestamosDelDia = prestamos.filter(p => enRango(p.fechaPrestamo || p.fechaInicio || p.fecha, fecha));
+  const totalPrestamos = prestamosDelDia.reduce((sum, p) => sum + Number(p.monto || 0), 0);
+  const totalRecaudado = pagosDelDia.reduce((sum, p) => sum + Number(p.valor || 0), 0);
+  const totalGastos = gastosDelDia.reduce((sum, g) => sum + Number(g.valor || 0), 0);
+  const baseDia = baseParaFecha(fecha);
+  return Number(baseDia || 0) + Number(totalRecaudado || 0) - Number(totalPrestamos || 0) - Number(totalGastos || 0);
+}
+
+async function aplicarBaseDesdeCierrePrevio(fecha) {
+  if (!fecha || baseParaFecha(fecha) > 0) return;
+  const anterior = fechaAnterior(fecha);
+  const efectivoAnterior = calcularEfectivoNetoDeFecha(anterior);
+  if (efectivoAnterior !== 0) {
+    await guardarBaseDiaria(fecha, efectivoAnterior);
+    mostrarToast('Base diaria cargada desde el cierre del día anterior.');
+  }
+}
+
+function iniciarReinicioCierre() {
+  let ultimoDiaCierre = fechaLocal();
+
+  const actualizarAlNuevoDia = async () => {
+    const hoyActual = fechaLocal();
+    if (hoyActual !== ultimoDiaCierre) {
+      ultimoDiaCierre = hoyActual;
+      const fechaInput = document.getElementById('fechaCierre');
+      if (fechaInput) fechaInput.value = hoyActual;
+      await cargarBaseDiaria(hoyActual);
+      await aplicarBaseDesdeCierrePrevio(hoyActual);
+      renderCierre(hoyActual);
+      mostrarToast('El cierre se actualizó al nuevo día.');
+    }
+  };
+
+  const ahora = new Date();
+  const manana = new Date(ahora);
+  manana.setDate(ahora.getDate() + 1);
+  manana.setHours(0, 0, 5, 0);
+  const msHastaMedianoche = manana.getTime() - ahora.getTime();
+
+  setTimeout(() => {
+    actualizarAlNuevoDia();
+    setInterval(actualizarAlNuevoDia, 24 * 60 * 60 * 1000);
+  }, Math.max(msHastaMedianoche, 0));
+}
+
 async function cargarTodo() {
   if (!userId) return;
   try {
@@ -95,17 +174,22 @@ function renderCierre(fechaCierre) {
   // Disponible respecto a la base: positivo = sobra para entregar, negativo = falta para cubrir la base
   const disponible = efectivoNeto - Number(baseDia || 0);
 
-  document.getElementById('cierrePrestamosCount').textContent = prestamosDelDia.length;
-  document.getElementById('cierrePrestamosValor').textContent = formatearMoneda(totalPrestamos);
-  document.getElementById('cierreRecaudado').textContent = formatearMoneda(totalRecaudado);
-  document.getElementById('cierreGastos').textContent = formatearMoneda(totalGastos);
-  document.getElementById('cierreBase').textContent = formatearMoneda(baseDia);
-  document.getElementById('cierreEfectivo').textContent = formatearMoneda(efectivoNeto);
+  const setText = (id, text) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = text;
+  };
+
+  setText('cierrePrestamosCount', prestamosDelDia.length);
+  setText('cierrePrestamosValor', formatearMoneda(totalPrestamos));
+  setText('cierreRecaudado', formatearMoneda(totalRecaudado));
+  setText('cierreGastos', formatearMoneda(totalGastos));
+  setText('cierreBase', formatearMoneda(baseDia));
+  setText('cierreEfectivo', formatearMoneda(efectivoNeto));
 
   const disponibleText = disponible >= 0
-    ? `Efectivo disponible para entregar: ${formatearMoneda(disponible)}.`
+    ? `Efectivo disponible: ${formatearMoneda(disponible)}.`
     : `Revisión necesaria: el efectivo neto no cubre la base diaria, falta ${formatearMoneda(Math.abs(disponible))}.`;
-  document.getElementById('cierreDisponible').textContent = disponibleText;
+  setText('cierreDisponible', disponibleText);
 
   document.getElementById('cierreTblPrestamosCount').textContent = prestamosDelDia.length;
   document.getElementById('cierreTblPrestamosDetalle').textContent = `Últimos ${Math.min(prestamosDelDia.length, 3)} préstamos registrados en el día.`;
@@ -138,7 +222,26 @@ window.actualizarCierre = async function() {
     return;
   }
   await cargarBaseDiaria(fecha);
+  if (fecha === fechaLocal()) {
+    await aplicarBaseDesdeCierrePrevio(fecha);
+  }
   renderCierre(fecha);
+};
+
+window.confirmarCerrarManual = async function() {
+  const fechaInput = document.getElementById('fechaCierre');
+  const fecha = fechaInput ? fechaInput.value : fechaLocal();
+  if (!fecha) {
+    mostrarToast('Selecciona una fecha de cierre válida.');
+    return;
+  }
+
+  const confirmar = window.confirm('¿Deseas cerrar este día?');
+  if (!confirmar) return;
+
+  await cargarBaseDiaria(fecha);
+  renderCierre(fecha);
+  mostrarToast(`Cierre manual realizado para ${fecha}.`);
 };
 
 window.exportarPDF = function() {
@@ -149,6 +252,20 @@ document.addEventListener('DOMContentLoaded', () => {
   const exportBtn = document.getElementById('exportarPdfButton');
   if (exportBtn) {
     exportBtn.addEventListener('click', () => window.print());
+  }
+
+  const actualizarBtn = document.getElementById('actualizarCierreButton');
+  if (actualizarBtn) {
+    actualizarBtn.addEventListener('click', () => {
+      window.actualizarCierre();
+    });
+  }
+
+  const cerrarManualBtn = document.getElementById('cerrarManualButton');
+  if (cerrarManualBtn) {
+    cerrarManualBtn.addEventListener('click', () => {
+      window.confirmarCerrarManual();
+    });
   }
 });
 
@@ -179,7 +296,9 @@ onAuthChange(async user => {
     fechaInput.value = hoyFecha;
   }
   await cargarBaseDiaria(hoyFecha);
+  await aplicarBaseDesdeCierrePrevio(hoyFecha);
   renderCierre(hoyFecha);
+  iniciarReinicioCierre();
 
   const exportBtn = document.getElementById('exportarPdfButton');
   if (exportBtn) {

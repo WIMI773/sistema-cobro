@@ -196,6 +196,33 @@ function baseParaFecha(fecha) {
   return Number(valor || 0);
 }
 
+function fechaAnterior(fecha) {
+  const d = new Date(fecha);
+  d.setDate(d.getDate() - 1);
+  return fechaLocal(d);
+}
+
+function calcularEfectivoNetoDeFecha(fecha) {
+  const pagosDelDia = pagos.filter(p => enRango(p.fecha, fecha));
+  const gastosDelDia = gastos.filter(g => enRango(g.fecha, fecha));
+  const prestamosDelDia = prestamos.filter(p => enRango(p.fechaPrestamo || p.fechaInicio || p.fecha, fecha));
+  const totalPrestamos = prestamosDelDia.reduce((sum, p) => sum + Number(p.monto || 0), 0);
+  const totalRecaudado = pagosDelDia.reduce((sum, p) => sum + Number(p.valor || 0), 0);
+  const totalGastos = gastosDelDia.reduce((sum, g) => sum + Number(g.valor || 0), 0);
+  const baseDia = baseParaFecha(fecha);
+  return Number(baseDia || 0) + Number(totalRecaudado || 0) - Number(totalPrestamos || 0) - Number(totalGastos || 0);
+}
+
+async function aplicarBaseDesdeCierrePrevio(fecha) {
+  if (!fecha || baseParaFecha(fecha) > 0) return;
+  const anterior = fechaAnterior(fecha);
+  const efectivoAnterior = calcularEfectivoNetoDeFecha(anterior);
+  if (efectivoAnterior !== 0) {
+    await guardarBaseDiaria(fecha, efectivoAnterior);
+    mostrarToast('Base diaria cargada desde el cierre del día anterior.');
+  }
+}
+
 async function guardarBaseDiaria(fecha, valor) {
   if (!fecha) return;
   localStorage.setItem(claveBaseDiaria(fecha), String(valor));
@@ -252,6 +279,7 @@ function iniciarReinicioDiario() {
     if (hoyActual !== ultimoDia) {
       ultimoDia = hoyActual;
       await cargarBaseDiaria(hoyActual);
+      await aplicarBaseDesdeCierrePrevio(hoyActual);
       renderReporte();
       mostrarToast('Se actualizó el reporte al nuevo día');
     }
@@ -710,6 +738,7 @@ onAuthChange(async user => {
   }
 
   await cargarTodo();
+  await aplicarBaseDesdeCierrePrevio(hoy());
   renderReporte();
   iniciarReinicioDiario();
 });

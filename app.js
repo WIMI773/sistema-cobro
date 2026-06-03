@@ -331,7 +331,10 @@ async function reordenarClientes(fromIndex, toIndex) {
     if (!filtro) return true;
     return c.nombre.toLowerCase().includes(filtro) || c.cedula.toLowerCase().includes(filtro);
   });
-  listaFiltrada = listaFiltrada.filter(c => filtrarPorEstadoCliente(c));
+
+  if (!filtro) {
+    listaFiltrada = listaFiltrada.filter(c => filtrarPorEstadoCliente(c));
+  }
 
   if (fromIndex >= listaFiltrada.length || toIndex >= listaFiltrada.length) return;
 
@@ -382,7 +385,9 @@ function renderClientes() {
     return c.nombre.toLowerCase().includes(filtro) || c.cedula.toLowerCase().includes(filtro);
   });
 
-  lista = lista.filter(c => filtrarPorEstadoCliente(c));
+  if (!filtro) {
+    lista = lista.filter(c => filtrarPorEstadoCliente(c));
+  }
 
   if (lista.length === 0) {
     listaCont.innerHTML = `<div class="placeholder">No se encontraron clientes</div>`;
