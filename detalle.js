@@ -366,12 +366,21 @@ async function renderDetalleCliente() {
   await actualizarMoras();
 
   let prestamosCliente = prestamos.filter(p => p.clienteId === clienteId);
-  let totalDeuda         = prestamosCliente.reduce((s, p) => s + saldoPendiente(p), 0);
-  let totalPagadoCliente = prestamosCliente.reduce((s, p) => s + totalPagadoReal(p), 0);
-  let totalMora          = prestamosCliente.reduce((s, p) => s + cuotasEnMora(p), 0);
+  // Ordenar: préstamos activos primero, luego los pagados
+  prestamosCliente.sort((a, b) => {
+    if (a.estado === 'Activo' && b.estado !== 'Activo') return -1;
+    if (a.estado !== 'Activo' && b.estado === 'Activo') return 1;
+    return 0;
+  });
+  let totalDeuda = prestamosCliente.reduce((s, p) => s + saldoPendiente(p), 0);
+  const prestamoActivo = prestamosCliente.find(p => p.estado === "Activo");
+  let totalPagadoCliente = prestamoActivo ? totalPagadoReal(prestamoActivo) : prestamosCliente.reduce((s, p) => s + totalPagadoReal(p), 0);
+  let totalMora = prestamoActivo ? cuotasEnMora(prestamoActivo) : prestamosCliente.reduce((s, p) => s + cuotasEnMora(p), 0);
 
-  if (!prestamoSeleccionadoId && prestamosCliente.length) {
-    prestamoSeleccionadoId = prestamosCliente[0].id;
+  // Seleccionar por defecto el préstamo activo si existe, sino el primero
+  if ((!prestamoSeleccionadoId && prestamosCliente.length) || (prestamoSeleccionadoId && prestamosCliente.find(p => p.id === prestamoSeleccionadoId)?.estado !== 'Activo' && prestamoActivo)) {
+    if (prestamoActivo) prestamoSeleccionadoId = prestamoActivo.id;
+    else if (prestamosCliente.length) prestamoSeleccionadoId = prestamosCliente[0].id;
   }
 
   let selectedLoan = prestamosCliente.find(p => p.id === prestamoSeleccionadoId) || null;
@@ -904,12 +913,20 @@ function abrirModalEditarPrestamo(prestamoId) {
   document.getElementById('editPrestamoInteres').value = prestamo.interes || 0;
   document.getElementById('editPrestamoCuotas').value = prestamo.numeroCuotas || (prestamo.cuotas? prestamo.cuotas.length : '');
   document.getElementById('editPrestamoValorCuota').value = (prestamo.cuotas && prestamo.cuotas[0]) ? (prestamo.cuotas[0].valor || '').toLocaleString('es-CO') : '';
+  // nuevo campo: ajuste de saldo (vacío por defecto)
+  const ajusteEl = document.getElementById('editPrestamoAjusteSaldo');
+  if (ajusteEl) ajusteEl.value = '';
+  // nuevo campo: total editable
+  const totalEl = document.getElementById('editPrestamoTotal');
+  if (totalEl) totalEl.value = '';
   document.getElementById('editPrestamoFecha').value = prestamo.fechaPrestamo || prestamo.fechaInicio || hoy();
   document.getElementById('editPrestamoFrecuencia').value = prestamo.frecuencia || 'mensual';
   document.getElementById('editPrestamoRegenerar').checked = false;
 
   aplicarFormatoInputCOP('editPrestamoMonto');
   aplicarFormatoInputCOP('editPrestamoValorCuota');
+  aplicarFormatoInputCOP('editPrestamoAjusteSaldo');
+  aplicarFormatoInputCOP('editPrestamoTotal');
 
   const modal = document.getElementById('modalEditarPrestamo');
   if (!modal) return;
@@ -936,6 +953,11 @@ async function guardarEdicionPrestamo() {
   const numeroCuotas = parseInt(document.getElementById('editPrestamoCuotas').value, 10);
   const valorCuotaRaw = (document.getElementById('editPrestamoValorCuota').dataset.rawValue || document.getElementById('editPrestamoValorCuota').value || '').replace(/\D/g, '');
   const valorCuota = parseFloat(valorCuotaRaw);
+  const ajusteRaw = (document.getElementById('editPrestamoAjusteSaldo')?.dataset.rawValue || document.getElementById('editPrestamoAjusteSaldo')?.value || '').replace(/\D/g, '');
+  const ajusteSaldo = parseFloat(ajusteRaw) || 0;
+  // Leer total editable (si el usuario lo ingresó) - mover arriba para usarlo como fuente
+  const totalEditRaw = (document.getElementById('editPrestamoTotal')?.dataset.rawValue || document.getElementById('editPrestamoTotal')?.value || '').replace(/\D/g, '');
+  const totalEditable = parseFloat(totalEditRaw);
   const fechaPrestamo = document.getElementById('editPrestamoFecha').value || hoy();
   const frecuencia = document.getElementById('editPrestamoFrecuencia').value || 'mensual';
   const regenerar = document.getElementById('editPrestamoRegenerar').checked;
@@ -945,10 +967,15 @@ async function guardarEdicionPrestamo() {
     return;
   }
 
+  // Calcular total base desde monto/interés o valor de cuota
   let total = Math.round(monto + (monto * interes / 100));
   if (!isNaN(valorCuota) && valorCuota > 0) total = Math.round(valorCuota * numeroCuotas);
 
+  // preparar copia de cuotas antes de posibles modificaciones
   let nuevasCuotas = prestamo.cuotas;
+
+  // Si el usuario ingresó un total editable válido, úsalo como fuente
+  // Nota: la suma al total editable se aplica más abajo, después de regenerar cuotas si corresponde.
 
   if (regenerar) {
     if (frecuencia === 'manual') {
@@ -966,6 +993,30 @@ async function guardarEdicionPrestamo() {
         if (i === numeroCuotas - 1) vc += resto;
       }
       nuevasCuotas.push({ numero: i + 1, fecha: sumarPeriodo(fechaPrimeraCuota, frecuencia, i), valor: vc, estado: 'pendiente' });
+    }
+  }
+
+  // Si el usuario ingresó un total editable, tratarlo como un ajuste (se suma al total existente)
+  if (!isNaN(totalEditable) && totalEditable > 0) {
+    const incremento = Math.round(totalEditable);
+    total = Math.round(Number(total || 0) + incremento);
+    if (Array.isArray(nuevasCuotas) && nuevasCuotas.length) {
+      const lastIdx = nuevasCuotas.length - 1;
+      nuevasCuotas[lastIdx] = { ...nuevasCuotas[lastIdx], valor: Math.round(Number(nuevasCuotas[lastIdx].valor || 0) + incremento) };
+    } else {
+      nuevasCuotas = [{ numero: 1, fecha: hoy(), valor: incremento, estado: 'pendiente' }];
+    }
+  }
+
+  // Aplicar ajuste de saldo: se suma al total y se agrega al valor de la última cuota (si existe)
+  if (ajusteSaldo !== 0) {
+    total = Math.round(Number(total || 0) + Number(ajusteSaldo));
+    if (Array.isArray(nuevasCuotas) && nuevasCuotas.length) {
+      const lastIdx = nuevasCuotas.length - 1;
+      nuevasCuotas[lastIdx] = { ...nuevasCuotas[lastIdx], valor: Math.round(Number(nuevasCuotas[lastIdx].valor || 0) + Number(ajusteSaldo)) };
+    } else if (!Array.isArray(nuevasCuotas) || nuevasCuotas.length === 0) {
+      // Si no hay cuotas, crear una cuota única con el ajuste
+      nuevasCuotas = [{ numero: 1, fecha: hoy(), valor: Math.round(ajusteSaldo), estado: 'pendiente' }];
     }
   }
 
