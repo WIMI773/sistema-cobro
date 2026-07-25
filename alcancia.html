@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
   <meta name="theme-color" content="#2563eb" />
-  <title>Gastos – Sistema de Cobro</title>
+  <title>Alcancía – Sistema de Cobro</title>
   <link rel="icon" href="logocobro.png" />
   <link rel="stylesheet" href="styles.css" />
   <style>
@@ -13,13 +13,12 @@
       overflow-x: hidden;
     }
 
-    /* ── RESUMEN TOTAL ── */
     .gastos-resumen {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      background: #fef2f2;
-      border: 1px solid #fca5a5;
+      background: #ecfdf5;
+      border: 1px solid #22c55e;
       border-radius: 14px;
       padding: 14px 18px;
       margin-bottom: 0;
@@ -28,7 +27,7 @@
     .gastos-resumen .resumen-label {
       font-size: 0.8rem;
       font-weight: 700;
-      color: #b91c1c;
+      color: #15803d;
       text-transform: uppercase;
       letter-spacing: 0.04em;
     }
@@ -36,10 +35,9 @@
     .gastos-resumen .resumen-valor {
       font-size: 1.5rem;
       font-weight: 800;
-      color: #b91c1c;
+      color: #15803d;
     }
 
-    /* ── GRUPOS POR FECHA ── */
     .gasto-grupo {
       margin-bottom: 14px;
     }
@@ -63,7 +61,6 @@
       font-weight: 800;
     }
 
-    /* ── TARJETA GASTO ── */
     .gasto-item {
       display: flex;
       align-items: flex-start;
@@ -99,16 +96,6 @@
       text-overflow: ellipsis;
     }
 
-    .gasto-categoria {
-      font-size: 0.74rem;
-      color: #6b7280;
-      background: #f3f4f6;
-      border-radius: 6px;
-      padding: 1px 7px;
-      display: inline-block;
-      width: fit-content;
-    }
-
     .gasto-nota {
       font-size: 0.74rem;
       color: #9ca3af;
@@ -126,11 +113,10 @@
     .gasto-valor {
       font-size: 0.92rem;
       font-weight: 800;
-      color: #b91c1c;
+      color: #15803d;
       white-space: nowrap;
     }
 
-    /* ── TOAST ── */
     .toast {
       position: fixed;
       bottom: 80px;
@@ -159,20 +145,15 @@
   <header>
     <div class="header-content">
       <div>
-        <h1>Gastos</h1>
+        <h1>Alcancía</h1>
+        <div class="periodo-label" style="margin-top:6px;color:#6b7280;font-weight:600;">Ingresos guardados por separado</div>
       </div>
       <div class="header-actions">
         <span id="usuarioEmail"></span>
-        <a href="index.html" style="text-decoration:none;">
-          <button class="btn-secondary small">← Inicio</button>
-        </a>
-        <a href="reportes.html" style="text-decoration:none;">
-          <button class="btn-secondary small">📊 Reportes</button>
-        </a>
-        <a href="alcancia.html" style="text-decoration:none;">
-          <button class="btn-secondary small">🐷 Alcancía</button>
-        </a>
-        <button id="logoutButton" class="btn-secondary small">Cerrar sesión</button>
+        <a href="index.html" style="text-decoration:none;"><button class="btn-secondary small">← Inicio</button></a>
+        <a href="reportes.html" style="text-decoration:none;"><button class="btn-secondary small">📊 Reportes</button></a>
+        <a href="gastos.html" style="text-decoration:none;"><button class="btn-secondary small">💸 Gastos</button></a>
+        <button id="logoutButton" class="btn-danger small">Cerrar sesión</button>
       </div>
     </div>
   </header>
@@ -181,71 +162,48 @@
     <aside class="panel panel-left">
 
       <div class="card card-small">
-        <h2>Buscar gasto</h2>
+        <h2>Buscar alcancía</h2>
         <input
           type="text"
-          id="buscarGasto"
-          placeholder="Buscar por descripción o categoría"
-          oninput="buscarGastos()"
+          id="buscarAlcancia"
+          placeholder="Buscar por descripción"
+          oninput="buscarAlcancias()"
         />
       </div>
 
-      <!-- Formulario nuevo gasto -->
-      <div id="nuevoGastoCard" class="card card-small hidden">
-        <h2>Nuevo gasto</h2>
+      <div id="nuevoAlcanciaCard" class="card card-small hidden">
+        <h2>Nuevo ingreso de alcancía</h2>
 
-        <input
-          type="text"
-          id="gastoDescripcion"
-          placeholder="Descripción *"
-        />
-
-        <input
-          type="number"
-          id="gastoValor"
-          placeholder="Valor $ *"
-          min="0"
-          step="100"
-        />
-
-        <select id="gastoCategoria">
-          <option value="" disabled selected>Categoría</option>
-        </select>
+        <input type="text" id="alcanciaDescripcion" placeholder="Descripción *" />
+        <input type="number" id="alcanciaValor" placeholder="Valor $ *" min="0" step="100" />
 
         <label style="font-size:0.8rem;font-weight:600;color:#374151;margin-bottom:2px;display:block;">Fecha</label>
-        <input type="date" id="gastoFecha" />
+        <input type="date" id="alcanciaFecha" />
 
-        <input
-          type="text"
-          id="gastoNota"
-          placeholder="Nota (opcional)"
-          style="margin-top:4px;"
-        />
+        <input type="text" id="alcanciaNota" placeholder="Nota (opcional)" style="margin-top:4px;" />
 
-        <button onclick="guardarGasto()" style="margin-top:10px;">Guardar gasto</button>
-        <button type="button" class="btn-secondary" onclick="ocultarNuevoGasto()">Cancelar</button>
+        <button onclick="guardarAlcancia()" style="margin-top:10px;">Guardar alcancía</button>
+        <button type="button" class="btn-secondary" onclick="ocultarNuevaAlcancia()">Cancelar</button>
       </div>
 
-      <!-- Resumen total -->
       <div class="gastos-resumen">
-        <span class="resumen-label">💸 Total gastos</span>
-        <span class="resumen-valor" id="totalGastos">$0</span>
+        <span class="resumen-label">🐷 Total alcancía</span>
+        <span class="resumen-valor" id="totalAlcancias">$0</span>
       </div>
 
-      <!-- Lista de gastos -->
       <div class="card">
-        <h2>Gastos registrados</h2>
-        <div id="listaGastos" class="client-list"></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;">
+          <h2>Ingresos de alcancía</h2>
+          <button class="btn-secondary small" onclick="toggleNuevaAlcancia()">+ Nuevo ingreso</button>
+        </div>
+        <div id="listaAlcancias" class="client-list"></div>
       </div>
 
     </aside>
   </main>
 
-  <!-- FAB: nuevo gasto -->
-  <button class="fab" onclick="toggleNuevoGasto()" aria-label="Crear gasto">+</button>
-
+  <button class="fab" onclick="toggleNuevaAlcancia()" aria-label="Crear ingreso">+</button>
   <div id="toast" class="toast"></div>
-
-  <script type="module" src="gastos.js"></script>
+  <script type="module" src="alcancia.js"></script>
 </body>
 </html>
